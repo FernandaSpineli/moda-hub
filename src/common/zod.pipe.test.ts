@@ -28,7 +28,8 @@ describe('ZodValidationPipe', () => {
       expect(e.status).toBe(422);
       expect(e.code).toBe('VALIDATION_FAILED');
       const fields = (e.details as { field: string }[]).map((d) => d.field);
-      expect(fields).toEqual(expect.arrayContaining(['email', 'quantity', '(body)']));
+      expect(fields).toEqual(['email', 'quantity', 'admin']);
+      expect((e.details as { message: string }[])[2]?.message).toBe('is not allowed');
     }
   });
 
