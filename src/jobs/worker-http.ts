@@ -1,8 +1,8 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Inject, Injectable, type OnApplicationBootstrap, type OnApplicationShutdown } from '@nestjs/common';
+import type { Registry } from '@prometheus-io/client';
 import { PinoLogger } from 'nestjs-pino';
-import type { Registry } from 'prom-client';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
 import { METRICS_REGISTRY, metricsAuthorized } from '../platform/metrics.js';
 

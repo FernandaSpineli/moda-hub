@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { Counter, collectDefaultMetrics, Histogram, Registry } from 'prom-client';
+import { Counter, collectDefaultMetrics, Histogram, Registry } from '@prometheus-io/client';
 import type { AppConfig } from '../config/config.js';
 
 /**

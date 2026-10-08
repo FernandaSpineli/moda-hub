@@ -1,10 +1,10 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Controller, Get, Header, Inject, type OnModuleInit, Req } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
+import { Gauge, type Registry } from '@prometheus-io/client';
 import type { Queue } from 'bullmq';
 import type { Request } from 'express';
 import type pg from 'pg';
-import { Gauge, type Registry } from 'prom-client';
 import { AppError } from '../common/app-error.js';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
 import { queueNames } from '../jobs/queues.js';
