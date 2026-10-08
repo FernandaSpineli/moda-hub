@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { HASH_OPTIONS, type HashOptions } from './modules/auth/password-hasher.js';
 import { CartModule } from './modules/cart/cart.module.js';
 import { CatalogModule } from './modules/catalog/catalog.module.js';
+import { OrdersModule } from './modules/orders/orders.module.js';
 import { DatabaseModule } from './platform/database.js';
 import { RedisModule } from './platform/redis.js';
 
@@ -35,6 +36,7 @@ export class AppModule implements NestModule {
         AuthModule,
         CatalogModule,
         CartModule,
+        OrdersModule,
       ],
       controllers: [HealthController],
       providers: [

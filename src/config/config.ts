@@ -47,6 +47,7 @@ const envSchema = z.object({
   ACCESS_TOKEN_TTL: duration('15m'),
   REFRESH_TOKEN_TTL: duration('720h'),
   PASSWORD_RESET_TTL: duration('30m'),
+  ORDER_RESERVATION_TTL: duration('30m'),
 });
 
 export interface AppConfig {
@@ -65,6 +66,8 @@ export interface AppConfig {
     refreshTokenTtlMs: number;
     passwordResetTtlMs: number;
   };
+  /** How long stock stays reserved for an unpaid order. */
+  orderReservationTtlMs: number;
 }
 
 export class ConfigError extends Error {
@@ -99,6 +102,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
       refreshTokenTtlMs: e.REFRESH_TOKEN_TTL,
       passwordResetTtlMs: e.PASSWORD_RESET_TTL,
     },
+    orderReservationTtlMs: e.ORDER_RESERVATION_TTL,
   };
 }
 

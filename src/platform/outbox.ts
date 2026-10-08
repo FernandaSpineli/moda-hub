@@ -6,6 +6,8 @@ import type { Tx } from './database.js';
 /** Domain events published through the outbox, with their payloads. */
 export interface DomainEvents {
   'auth.password_reset_requested': { userId: string };
+  'order.placed': { orderId: string; userId: string; totalCents: number; expiresAt: string };
+  'order.status_changed': { orderId: string; userId: string; from: string; to: string; reason: string };
 }
 
 export type DomainEventType = keyof DomainEvents;
