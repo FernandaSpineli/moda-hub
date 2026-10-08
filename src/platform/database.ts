@@ -8,6 +8,9 @@ import * as schema from '../db/schema/index.js';
 export const PG_POOL = Symbol('PG_POOL');
 export const DB = Symbol('DB');
 export type Db = NodePgDatabase<typeof schema>;
+/** A Drizzle transaction; repositories accept either. */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+export type DbOrTx = Db | Tx;
 
 /**
  * Opens the PostgreSQL pool and verifies the database is reachable before
