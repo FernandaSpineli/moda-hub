@@ -6,9 +6,10 @@ import { baseLoggerOptions } from './common/logging.js';
 import { ConfigError, loadConfig } from './config/config.js';
 import { runMigrations } from './db/migrate.js';
 import * as schema from './db/schema/index.js';
+import { seedDemo } from './db/seed-demo.js';
 import { AuthRepository } from './modules/auth/auth.repository.js';
 
-const usage = 'usage: node dist/cli.js migrate | user promote <email>';
+const usage = 'usage: node dist/cli.js migrate | seed-demo | user promote <email>';
 
 /**
  * Operational commands, run as one-off containers (see docker-compose.yml).
@@ -28,6 +29,11 @@ export async function runCli(
         const started = Date.now();
         await runMigrations(pool);
         logger.info({ duration_ms: Date.now() - started }, 'db.migrations.applied');
+        break;
+      }
+      case 'seed-demo': {
+        const counts = await seedDemo(drizzle(pool, { schema, casing: 'snake_case' }), logger);
+        logger.info(counts, 'db.demo_seeded');
         break;
       }
       case 'user': {

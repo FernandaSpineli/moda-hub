@@ -51,6 +51,26 @@ describe('cli', () => {
     expect(JSON.stringify(logs)).not.toContain('ana@example.com');
   });
 
+  it('seeds a demo catalogue once, through the catalogue rules', async () => {
+    await runCli(['seed-demo'], env, stream);
+    expect(logs.at(-1)).toMatchObject({ event: 'db.demo_seeded', products: 11 });
+    const { rows } = await sql.query(
+      `SELECT count(DISTINCT p.id)::int AS products, count(*)::int AS variants,
+              count(*) FILTER (WHERE i.on_hand = 0)::int AS sold_out,
+              count(*) FILTER (WHERE v.compare_at_price_cents IS NOT NULL)::int AS on_sale,
+              count(DISTINCT p.slug)::int AS slugs
+       FROM products p JOIN product_variants v ON v.product_id = p.id JOIN inventory i ON i.variant_id = v.id
+       WHERE p.status = 'active'`,
+    );
+    expect(rows[0].products).toBe(11);
+    expect(rows[0].slugs).toBe(11);
+    expect(rows[0].variants).toBe((logs.at(-1) as { variants: number }).variants);
+    expect(rows[0].sold_out).toBeGreaterThan(0);
+    expect(rows[0].on_sale).toBeGreaterThan(0);
+
+    await expect(runCli(['seed-demo'], env, stream)).rejects.toThrow('not empty');
+  });
+
   it.each([
     [['user', 'promote', 'nobody@example.com'], 'no account'],
     [['user', 'demote', 'ana@example.com'], 'usage'],
