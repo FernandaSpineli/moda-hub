@@ -11,6 +11,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
+    "migrate": "node dist/cli.js migrate",
+    "db:generate": "drizzle-kit generate",
     "dev": "node --watch --enable-source-maps --import @swc-node/register/esm-register src/main.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",

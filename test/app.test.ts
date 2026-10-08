@@ -5,8 +5,10 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { testConfig } from './support/config.js';
+import { createTestDatabase } from './support/database.js';
 
 let app: INestApplication;
+let dropDatabase: () => Promise<void>;
 const lines: Record<string, unknown>[] = [];
 const logStream = new Writable({
   write(chunk, _enc, done) {
@@ -16,10 +18,15 @@ const logStream = new Writable({
 });
 
 beforeAll(async () => {
-  app = await createApp({ config: testConfig(), logStream });
+  const db = await createTestDatabase();
+  dropDatabase = db.drop;
+  app = await createApp({ config: testConfig(db.url), logStream });
   await app.init();
 });
-afterAll(() => app.close());
+afterAll(async () => {
+  await app.close();
+  await dropDatabase();
+});
 
 describe('HTTP foundation', () => {
   it('serves the health check with a request ID', async () => {

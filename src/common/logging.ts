@@ -1,10 +1,28 @@
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Params } from 'nestjs-pino';
-import type { DestinationStream } from 'pino';
+import type { DestinationStream, LoggerOptions } from 'pino';
 import type { AppConfig } from '../config/config.js';
 
 const REQUEST_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * Options shared by every process (API, worker, CLI): JSON lines with a
+ * named "event", a level label and the service name.
+ */
+export function baseLoggerOptions(config: AppConfig): LoggerOptions {
+  return {
+    level: config.logLevel,
+    messageKey: 'event',
+    base: { service: 'moda-hub', env: config.env },
+    formatters: { level: (label) => ({ level: label }) },
+    // Defence in depth for anything logged by hand.
+    redact: {
+      paths: ['*.password', '*.token', '*.refresh_token', '*.authorization', '*.cookie', 'password', 'token'],
+      censor: '[REDACTED]',
+    },
+  };
+}
 
 /**
  * Keeps a well-formed incoming X-Request-ID (so a request can be traced
@@ -28,10 +46,7 @@ export function loggerParams(config: AppConfig, stream?: DestinationStream): Par
   return {
     pinoHttp: [
       {
-        level: config.logLevel,
-        messageKey: 'event',
-        base: { service: 'moda-hub', env: config.env },
-        formatters: { level: (label) => ({ level: label }) },
+        ...baseLoggerOptions(config),
         genReqId: requestId,
         // Put request_id on the request's child logger, so business events
         // logged during the request carry it too.
@@ -47,19 +62,6 @@ export function loggerParams(config: AppConfig, stream?: DestinationStream): Par
             remote_ip: req.remoteAddress,
           }),
           res: (res: { statusCode: number }) => ({ status: res.statusCode }),
-        },
-        // Defence in depth for anything logged by hand.
-        redact: {
-          paths: [
-            '*.password',
-            '*.token',
-            '*.refresh_token',
-            '*.authorization',
-            '*.cookie',
-            'password',
-            'token',
-          ],
-          censor: '[REDACTED]',
         },
       },
       ...(stream ? [stream] : []),

@@ -3,10 +3,11 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { PinoLogger } from 'nestjs-pino';
 import pg from 'pg';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
+import * as schema from '../db/schema/index.js';
 
 export const PG_POOL = Symbol('PG_POOL');
 export const DB = Symbol('DB');
-export type Db = NodePgDatabase;
+export type Db = NodePgDatabase<typeof schema>;
 
 /**
  * Opens the PostgreSQL pool and verifies the database is reachable before
@@ -32,7 +33,12 @@ export type Db = NodePgDatabase;
         return pool;
       },
     },
-    { provide: DB, inject: [PG_POOL], useFactory: (pool: pg.Pool): Db => drizzle(pool) },
+    {
+      provide: DB,
+      inject: [PG_POOL],
+      // snake_case columns in SQL, camelCase in TypeScript.
+      useFactory: (pool: pg.Pool): Db => drizzle(pool, { schema, casing: 'snake_case' }),
+    },
   ],
   exports: [PG_POOL, DB],
 })
