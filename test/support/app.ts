@@ -1,13 +1,19 @@
 import 'reflect-metadata';
+import { randomBytes } from 'node:crypto';
 import { Writable } from 'node:stream';
-import type { INestApplication } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
+import type { INestApplication, INestApplicationContext } from '@nestjs/common';
+import type { Queue } from 'bullmq';
 import pg from 'pg';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
+import { QUEUES, queueNames } from '../../src/jobs/queues.js';
 import type { PaymentGateway } from '../../src/modules/payments/payment-gateway.js';
+import { createWorker } from '../../src/worker.js';
 import { testConfig } from './config.js';
 import { createTestDatabase } from './database.js';
 import { FakeGateway } from './fake-gateway.js';
+import { FakeMailer } from './fake-mailer.js';
 
 export interface TestApp {
   app: INestApplication;
@@ -18,12 +24,16 @@ export interface TestApp {
   logs: Record<string, unknown>[];
   /** The stand-in for Stripe (null when payments are disabled). */
   gateway: FakeGateway | null;
+  /** Email the worker "sent". */
+  mailer: FakeMailer;
+  /** Resolves once the outbox is drained and no job is waiting or running. */
+  idle: (timeoutMs?: number) => Promise<void>;
   close: () => Promise<void>;
 }
 
 /** The real application, wired as in production, on a fresh database. */
 export async function startTestApp(
-  options: { env?: Record<string, string>; paymentGateway?: PaymentGateway | null } = {},
+  options: { env?: Record<string, string>; paymentGateway?: PaymentGateway | null; worker?: boolean } = {},
 ): Promise<TestApp> {
   const gateway = options.paymentGateway === undefined ? new FakeGateway() : options.paymentGateway;
   const db = await createTestDatabase();
@@ -34,14 +44,25 @@ export async function startTestApp(
       done();
     },
   });
+  // Each test file gets its own queues in the shared Redis.
+  const config = testConfig(db.url, {
+    QUEUE_PREFIX: `test-${randomBytes(4).toString('hex')}`,
+    JOB_RETRY_BASE_DELAY: '20ms',
+    ...options.env,
+  });
+  const hashOptions = { memoryCost: 1024, timeCost: 1, parallelism: 1 };
+  const mailer = new FakeMailer();
   const app = await createApp({
-    config: testConfig(db.url, options.env),
+    config,
     paymentGateway: gateway,
     logStream,
     // argon2's production cost (64 MiB per hash) would make the suite slow.
-    hashOptions: { memoryCost: 1024, timeCost: 1, parallelism: 1 },
+    hashOptions,
   });
   await app.init();
+  const worker: INestApplicationContext | undefined = options.worker
+    ? await createWorker({ config, logStream, hashOptions, paymentGateway: gateway, mailer })
+    : undefined;
   const sql = new pg.Pool({ connectionString: db.url, max: 2 });
   return {
     app,
@@ -49,7 +70,42 @@ export async function startTestApp(
     sql,
     logs,
     gateway: gateway instanceof FakeGateway ? gateway : null,
+    mailer,
+    idle: async (timeoutMs = 15_000) => {
+      if (!worker) throw new Error('start the app with { worker: true } to process jobs');
+      const queues = queueNames.map((n) => app.get<Queue>(getQueueToken(n)));
+      const deadline = Date.now() + timeoutMs;
+      let quietChecks = 0;
+      while (quietChecks < 2) {
+        if (Date.now() > deadline) throw new Error('jobs did not settle in time');
+        const { rows } = await sql.query(
+          'SELECT count(*)::int AS n FROM outbox_events WHERE published_at IS NULL',
+        );
+        const counts = await Promise.all(
+          // Retries wait in "delayed" (backoff), so count those too — except
+          // expiry jobs, which are legitimately delayed until the reservation ends.
+          queues.map((q) =>
+            q.getJobCounts(
+              'waiting',
+              'active',
+              'prioritized',
+              ...(q.name === QUEUES.orderExpiry ? [] : (['delayed'] as const)),
+            ),
+          ),
+        );
+        const busy =
+          rows[0].n +
+          counts.reduce(
+            (n, c) => n + (c.waiting ?? 0) + (c.active ?? 0) + (c.prioritized ?? 0) + (c.delayed ?? 0),
+            0,
+          );
+        rows[0].n + counts.reduce((n, c) => n + (c.waiting ?? 0) + (c.active ?? 0) + (c.prioritized ?? 0), 0);
+        quietChecks = busy === 0 ? quietChecks + 1 : 0;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    },
     close: async () => {
+      await worker?.close();
       await app.close();
       await sql.end();
       await db.drop();

@@ -1,7 +1,11 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import type { RawBodyRequest } from '@nestjs/common';
 import { Controller, Headers, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
+import type { Queue } from 'bullmq';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
+import { currentCorrelationId } from '../../common/request-context.js';
+import { QUEUES } from '../../jobs/queues.js';
 import { CurrentUser, Public } from '../auth/decorators.js';
 import type { Principal } from '../auth/principal.js';
 import { orderErrors } from '../orders/orders.service.js';
@@ -16,7 +20,10 @@ const orderId = {
 
 @Controller()
 export class PaymentsController {
-  constructor(private readonly payments: PaymentsService) {}
+  constructor(
+    private readonly payments: PaymentsService,
+    @InjectQueue(QUEUES.stripeEvents) private readonly stripeEvents: Queue,
+  ) {}
 
   /** 201 with a new Stripe Checkout session, or 200 with the one already open. */
   @Post('orders/:id/checkout')
@@ -30,13 +37,23 @@ export class PaymentsController {
     return checkout;
   }
 
-  /** Public: the Stripe signature, not a session, authenticates the caller. */
+  /**
+   * Public: the Stripe signature, not a session, authenticates the caller.
+   * The event is verified and recorded, then applied by the worker; Stripe
+   * gets its 200 at once and a database hiccup becomes a retry, not a 500.
+   */
   @Public()
   @Post('payments/webhook')
   @HttpCode(200)
   async webhook(@Req() req: RawBodyRequest<Request>, @Headers('stripe-signature') signature?: string) {
     const eventId = await this.payments.receive(req.rawBody, signature);
-    if (eventId) await this.payments.apply(eventId);
+    if (eventId) {
+      await this.stripeEvents.add(
+        'apply',
+        { eventId, correlationId: currentCorrelationId(), payload: {} },
+        { jobId: eventId },
+      );
+    }
     return { received: true };
   }
 }

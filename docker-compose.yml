@@ -9,6 +9,7 @@ x-app: &app
     LOG_LEVEL: ${LOG_LEVEL:-info}
     DATABASE_URL: postgres://moda:moda@postgres:5432/moda
     REDIS_URL: redis://redis:6379/0
+    SMTP_URL: smtp://mailpit:1025
     APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
     JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?set JWT_PRIVATE_KEY in .env (node scripts/generate-jwt-key.mjs)}
     ORDER_RESERVATION_TTL: ${ORDER_RESERVATION_TTL:-30m}
@@ -36,6 +37,27 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+
+  # Outbox relay and queue processors: same image, no HTTP.
+  worker:
+    <<: *app
+    command: ["node", "--enable-source-maps", "dist/worker.js"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  # Catches every email the worker sends: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
 
   postgres:
     image: postgres:18-alpine

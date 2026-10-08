@@ -11,6 +11,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
+    "start:worker": "node dist/worker.js",
     "migrate": "node dist/cli.js migrate",
     "db:generate": "drizzle-kit generate",
     "dev": "node --watch --enable-source-maps --import @swc-node/register/esm-register src/main.ts",
@@ -22,14 +23,17 @@
     "test:cov": "vitest run --coverage"
   },
   "dependencies": {
+    "@nestjs/bullmq": "^12.0.0",
     "@nestjs/common": "^12.1.2",
     "@nestjs/core": "^12.1.2",
     "@nestjs/platform-express": "^12.1.2",
     "argon2": "^0.45.1",
+    "bullmq": "^6.3.11",
     "drizzle-orm": "^0.45.3",
     "ioredis": "^6.0.0",
     "jose": "^6.2.12",
     "nestjs-pino": "^5.3.1",
+    "nodemailer": "10.0.15",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
@@ -47,6 +51,7 @@
     "@testcontainers/redis": "^12.2.0",
     "@types/express": "^5.0.6",
     "@types/node": "^24.19.1",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
     "drizzle-kit": "^0.31.11",

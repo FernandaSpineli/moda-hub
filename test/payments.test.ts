@@ -6,10 +6,16 @@ import { sendWebhook, session } from './support/webhooks.js';
 let t: TestApp;
 let c: SeededCatalog;
 beforeAll(async () => {
-  t = await startTestApp();
+  t = await startTestApp({ worker: true });
   c = await seedCatalog(t);
 });
 afterAll(() => t.close());
+
+/** Sends a signed webhook and waits for the worker to apply it. */
+async function deliver(event: Parameters<typeof sendWebhook>[1]) {
+  await sendWebhook(t, event).expect(200);
+  await t.idle();
+}
 
 const blusa = () => c.products.blusa.variantIds[0] as string;
 
@@ -128,11 +134,11 @@ describe('webhooks', () => {
     const co = (await checkout().expect(201)).body;
     const before = await stock();
 
-    await sendWebhook(t, {
+    await deliver({
       id: 'evt_paid',
       type: 'checkout.session.completed',
       object: session(co.sessionId, order.totalCents, 'paid'),
-    }).expect(200);
+    });
 
     const paid = await orderOf(auth, order.id);
     expect(paid).toMatchObject({ status: 'paid', expiresAt: null });
@@ -158,7 +164,7 @@ describe('webhooks', () => {
 
     const results = await Promise.all(Array.from({ length: 5 }, () => sendWebhook(t, event)));
     expect(results.every((r) => r.status === 200)).toBe(true);
-    await sendWebhook(t, event).expect(200);
+    await deliver(event);
 
     expect((await orderOf(auth, order.id)).statusHistory).toHaveLength(2);
     expect((await stock()).on_hand).toBe(before.on_hand - 2);
@@ -191,17 +197,17 @@ describe('webhooks', () => {
   it('wait for delayed methods (boleto) to settle, then pay', async () => {
     const { auth, order, checkout } = await pendingOrder();
     const co = (await checkout().expect(201)).body;
-    await sendWebhook(t, {
+    await deliver({
       id: 'evt_b1',
       type: 'checkout.session.completed',
       object: session(co.sessionId, order.totalCents, 'unpaid'),
-    }).expect(200);
+    });
     expect((await orderOf(auth, order.id)).status).toBe('pending_payment');
-    await sendWebhook(t, {
+    await deliver({
       id: 'evt_b2',
       type: 'checkout.session.async_payment_succeeded',
       object: session(co.sessionId, order.totalCents, 'paid'),
-    }).expect(200);
+    });
     expect((await orderOf(auth, order.id)).status).toBe('paid');
   });
 
@@ -209,11 +215,11 @@ describe('webhooks', () => {
     const { auth, order, checkout } = await pendingOrder();
     const co = (await checkout().expect(201)).body;
     const before = await stock();
-    await sendWebhook(t, {
+    await deliver({
       id: 'evt_f1',
       type: 'checkout.session.async_payment_failed',
       object: session(co.sessionId, order.totalCents, 'unpaid'),
-    }).expect(200);
+    });
     const failed = await orderOf(auth, order.id);
     expect(failed.status).toBe('cancelled');
     expect(failed.statusHistory.at(-1).reason).toBe('payment failed');
@@ -224,11 +230,11 @@ describe('webhooks', () => {
   it('leave the order open when a session expires, so the customer can retry', async () => {
     const { auth, order, checkout } = await pendingOrder();
     const first = (await checkout().expect(201)).body;
-    await sendWebhook(t, {
+    await deliver({
       id: 'evt_e1',
       type: 'checkout.session.expired',
       object: session(first.sessionId, order.totalCents, 'unpaid'),
-    }).expect(200);
+    });
     expect(await paymentStatus(first.sessionId)).toBe('expired');
     expect((await orderOf(auth, order.id)).status).toBe('pending_payment');
 
@@ -240,11 +246,11 @@ describe('webhooks', () => {
   it('never fulfil an order for the wrong amount', async () => {
     const { auth, order, checkout } = await pendingOrder();
     const co = (await checkout().expect(201)).body;
-    await sendWebhook(t, {
+    await deliver({
       id: 'evt_amt',
       type: 'checkout.session.completed',
       object: session(co.sessionId, 100, 'paid'),
-    }).expect(200);
+    });
     expect((await orderOf(auth, order.id)).status).toBe('pending_payment');
     expect(await paymentStatus(co.sessionId)).toBe('failed');
     expect(t.logs.some((l) => l.event === 'payment.amount_mismatch')).toBe(true);
@@ -256,11 +262,11 @@ describe('webhooks', () => {
     await t.sql.query(`UPDATE inventory SET reserved = reserved - 2 WHERE variant_id = $1`, [blusa()]);
     await t.sql.query(`UPDATE orders SET status = 'expired', expires_at = NULL WHERE id = $1`, [order.id]);
 
-    await sendWebhook(t, {
+    await deliver({
       id: 'evt_late',
       type: 'checkout.session.completed',
       object: session(co.sessionId, order.totalCents, 'paid'),
-    }).expect(200);
+    });
     expect((await orderOf(auth, order.id)).status).toBe('expired');
     expect(t.logs.some((l) => l.event === 'payment.requires_refund')).toBe(true);
   });
@@ -271,25 +277,25 @@ describe('webhooks', () => {
     expect(
       (await t.http.post(`/api/v1/orders/${order.id}/cancel`).set(auth).expect(409)).body.error.code,
     ).toBe('PAYMENT_IN_PROGRESS');
-    await sendWebhook(t, {
+    await deliver({
       id: 'evt_c1',
       type: 'checkout.session.expired',
       object: session(co.sessionId, order.totalCents, 'unpaid'),
-    }).expect(200);
+    });
     await t.http.post(`/api/v1/orders/${order.id}/cancel`).set(auth).expect(200);
   });
 
   it('acknowledge events that are not ours', async () => {
-    await sendWebhook(t, {
+    await deliver({
       id: 'evt_other',
       type: 'customer.created',
       object: { id: 'cus_1', object: 'customer' },
-    }).expect(200);
-    await sendWebhook(t, {
+    });
+    await deliver({
       id: 'evt_unknown',
       type: 'checkout.session.completed',
       object: session('cs_not_ours', 100, 'paid'),
-    }).expect(200);
+    });
     expect(t.logs.some((l) => l.event === 'webhook.unknown_session')).toBe(true);
   });
 });

@@ -48,6 +48,16 @@ const envSchema = z.object({
   REFRESH_TOKEN_TTL: duration('720h'),
   PASSWORD_RESET_TTL: duration('30m'),
   ORDER_RESERVATION_TTL: duration('30m'),
+  QUEUE_PREFIX: z
+    .string()
+    .regex(/^[a-z0-9-]{1,40}$/, 'lowercase letters, digits and dashes')
+    .default('moda-hub'),
+  JOB_RETRY_BASE_DELAY: duration('1s'),
+  SMTP_URL: z
+    .string()
+    .startsWith('smtp', 'must be an smtp:// or smtps:// URL')
+    .default('smtp://localhost:1025'),
+  MAIL_FROM: z.string().default('Moda Hub <nao-responda@modahub.local>'),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 });
@@ -94,6 +104,11 @@ export interface AppConfig {
   };
   /** How long stock stays reserved for an unpaid order. */
   orderReservationTtlMs: number;
+  /** Namespaces the BullMQ keys in Redis (tests use one per file). */
+  queuePrefix: string;
+  /** First retry delay of a failed job; it doubles on every attempt. */
+  jobRetryBaseDelayMs: number;
+  mail: { smtpUrl: Secret; from: string };
   /** Absent when payments are not configured. */
   stripe?: { secretKey: Secret; webhookSecret: Secret };
 }
@@ -131,6 +146,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
       passwordResetTtlMs: e.PASSWORD_RESET_TTL,
     },
     orderReservationTtlMs: e.ORDER_RESERVATION_TTL,
+    queuePrefix: e.QUEUE_PREFIX,
+    jobRetryBaseDelayMs: e.JOB_RETRY_BASE_DELAY,
+    mail: { smtpUrl: new Secret(e.SMTP_URL), from: e.MAIL_FROM },
     stripe:
       e.STRIPE_SECRET_KEY && e.STRIPE_WEBHOOK_SECRET
         ? { secretKey: new Secret(e.STRIPE_SECRET_KEY), webhookSecret: new Secret(e.STRIPE_WEBHOOK_SECRET) }
