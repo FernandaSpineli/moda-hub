@@ -7,3 +7,8 @@ allowBuilds:
   msgpackr-extract: false
   protobufjs: false
   ssh2: false
+
+# drizzle-kit's deprecated @esbuild-kit loader pins an esbuild with a dev-server
+# advisory (GHSA-67mh-4wv8-2f99); the patched line is API-compatible.
+overrides:
+  '@esbuild-kit/core-utils>esbuild': ^0.25.4
