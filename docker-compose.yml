@@ -50,7 +50,10 @@ services:
       mailpit:
         condition: service_started
     healthcheck:
-      disable: true
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   # Catches every email the worker sends: http://localhost:8025

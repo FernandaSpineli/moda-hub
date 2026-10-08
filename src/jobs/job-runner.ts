@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { PinoLogger } from 'nestjs-pino';
 import { withCorrelationId } from '../common/request-context.js';
 import { DB, type Db } from '../platform/database.js';
+import { JOB_METRICS, type JobMetrics } from '../platform/metrics.js';
 import type { EventJobData } from './queues.js';
 
 /**
@@ -16,6 +17,7 @@ export class JobRunner {
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly logger: PinoLogger,
+    @Inject(JOB_METRICS) private readonly metrics: JobMetrics,
   ) {}
 
   run<T>(job: Job<EventJobData>, fn: () => Promise<T>): Promise<T> {
@@ -29,10 +31,20 @@ export class JobRunner {
     return this.logger.runInContext(
       () =>
         withCorrelationId(job.data.correlationId ?? undefined, async () => {
-          const started = Date.now();
-          const result = await fn();
-          this.logger.info({ duration_ms: Date.now() - started }, 'job.completed');
-          return result;
+          const labels = { queue: job.queueName, name: job.name };
+          const stop = this.metrics.duration.startTimer(labels);
+          try {
+            const started = Date.now();
+            const result = await fn();
+            stop();
+            this.metrics.jobs.inc({ ...labels, outcome: 'completed' });
+            this.logger.info({ duration_ms: Date.now() - started }, 'job.completed');
+            return result;
+          } catch (err) {
+            const final = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
+            this.metrics.jobs.inc({ ...labels, outcome: final ? 'dead_lettered' : 'failed' });
+            throw err;
+          }
         }),
       { bindings },
     );

@@ -53,6 +53,8 @@ const envSchema = z.object({
     .regex(/^[a-z0-9-]{1,40}$/, 'lowercase letters, digits and dashes')
     .default('moda-hub'),
   JOB_RETRY_BASE_DELAY: duration('1s'),
+  WORKER_PORT: z.coerce.number().int().min(0).max(65_535).default(3001),
+  METRICS_TOKEN: z.string().min(16, 'must be at least 16 characters').optional(),
   SMTP_URL: z
     .string()
     .startsWith('smtp', 'must be an smtp:// or smtps:// URL')
@@ -108,6 +110,10 @@ export interface AppConfig {
   queuePrefix: string;
   /** First retry delay of a failed job; it doubles on every attempt. */
   jobRetryBaseDelayMs: number;
+  /** The worker's HTTP port, for /health and /metrics only. */
+  workerPort: number;
+  /** When set, /metrics requires it as a bearer token. */
+  metricsToken?: Secret;
   mail: { smtpUrl: Secret; from: string };
   /** Absent when payments are not configured. */
   stripe?: { secretKey: Secret; webhookSecret: Secret };
@@ -148,6 +154,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     orderReservationTtlMs: e.ORDER_RESERVATION_TTL,
     queuePrefix: e.QUEUE_PREFIX,
     jobRetryBaseDelayMs: e.JOB_RETRY_BASE_DELAY,
+    workerPort: e.WORKER_PORT,
+    metricsToken: e.METRICS_TOKEN ? new Secret(e.METRICS_TOKEN) : undefined,
     mail: { smtpUrl: new Secret(e.SMTP_URL), from: e.MAIL_FROM },
     stripe:
       e.STRIPE_SECRET_KEY && e.STRIPE_WEBHOOK_SECRET

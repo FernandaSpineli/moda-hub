@@ -8,10 +8,12 @@ import {
   OrderExpiryProcessor,
   StripeEventsProcessor,
 } from './jobs/processors.js';
+import { WorkerHttpServer } from './jobs/worker-http.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
 import { PaymentsModule } from './modules/payments/payments.module.js';
 import { MAILER, type Mailer, SmtpMailer } from './platform/mailer.js';
+import { createRegistry, JOB_METRICS, jobMetrics, METRICS_REGISTRY } from './platform/metrics.js';
 import { PlatformModule, type PlatformOptions } from './platform/platform.module.js';
 
 export interface WorkerOptions extends PlatformOptions {
@@ -24,6 +26,7 @@ export interface WorkerOptions extends PlatformOptions {
 export class WorkerModule {
   static register({ mailer, ...platform }: WorkerOptions): DynamicModule {
     const { config } = platform;
+    const registry = createRegistry('worker');
     return {
       module: WorkerModule,
       imports: [PlatformModule.register(platform), AuthModule, OrdersModule, PaymentsModule],
@@ -32,6 +35,9 @@ export class WorkerModule {
           provide: MAILER,
           useValue: mailer ?? new SmtpMailer(config.mail.smtpUrl.reveal(), config.mail.from),
         },
+        { provide: METRICS_REGISTRY, useValue: registry },
+        { provide: JOB_METRICS, useValue: jobMetrics(registry) },
+        WorkerHttpServer,
         JobRunner,
         OutboxRelay,
         ExpirySweepScheduler,

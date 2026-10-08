@@ -26,6 +26,8 @@ export interface TestApp {
   gateway: FakeGateway | null;
   /** Email the worker "sent". */
   mailer: FakeMailer;
+  /** The worker, when started with { worker: true }. */
+  worker?: INestApplicationContext;
   /** Resolves once the outbox is drained and no job is waiting or running. */
   idle: (timeoutMs?: number) => Promise<void>;
   close: () => Promise<void>;
@@ -48,6 +50,7 @@ export async function startTestApp(
   const config = testConfig(db.url, {
     QUEUE_PREFIX: `test-${randomBytes(4).toString('hex')}`,
     JOB_RETRY_BASE_DELAY: '20ms',
+    WORKER_PORT: '0', // any free port
     ...options.env,
   });
   const hashOptions = { memoryCost: 1024, timeCost: 1, parallelism: 1 };
@@ -71,6 +74,7 @@ export async function startTestApp(
     logs,
     gateway: gateway instanceof FakeGateway ? gateway : null,
     mailer,
+    worker,
     idle: async (timeoutMs = 15_000) => {
       if (!worker) throw new Error('start the app with { worker: true } to process jobs');
       const queues = queueNames.map((n) => app.get<Queue>(getQueueToken(n)));
