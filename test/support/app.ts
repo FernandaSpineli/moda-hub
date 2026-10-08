@@ -51,6 +51,8 @@ export async function startTestApp(
     QUEUE_PREFIX: `test-${randomBytes(4).toString('hex')}`,
     JOB_RETRY_BASE_DELAY: '20ms',
     WORKER_PORT: '0', // any free port
+    // Tests sign up many accounts from one IP; test/rate-limit.test.ts turns limits on.
+    RATE_LIMIT: 'off',
     ...options.env,
   });
   const hashOptions = { memoryCost: 1024, timeCost: 1, parallelism: 1 };

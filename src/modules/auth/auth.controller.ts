@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { ApiZodBody } from '../../common/openapi.js';
+import { RateLimit } from '../../common/rate-limit.js';
 import { ZodValidationPipe } from '../../common/zod.pipe.js';
 import { APP_CONFIG, type AppConfig } from '../../config/config.js';
 import {
@@ -32,6 +33,7 @@ export class AuthController {
 
   @Post('register')
   @ApiZodBody(registerSchema)
+  @RateLimit({ name: 'register-ip', limit: 10, windowSeconds: 3600, by: 'ip' })
   async register(
     @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
     @Res({ passthrough: true }) res: Response,
@@ -41,6 +43,12 @@ export class AuthController {
 
   @Post('login')
   @ApiZodBody(loginSchema)
+  // Per IP against one client trying many accounts; per email against many
+  // clients guessing one account's password.
+  @RateLimit(
+    { name: 'login-ip', limit: 20, windowSeconds: 300, by: 'ip' },
+    { name: 'login-email', limit: 10, windowSeconds: 900, by: 'email' },
+  )
   @HttpCode(200)
   async login(
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
@@ -73,6 +81,11 @@ export class AuthController {
 
   @Post('password/forgot')
   @ApiZodBody(forgotPasswordSchema)
+  // Each request sends an email: cap it per IP and per inbox.
+  @RateLimit(
+    { name: 'forgot-ip', limit: 10, windowSeconds: 3600, by: 'ip' },
+    { name: 'forgot-email', limit: 3, windowSeconds: 3600, by: 'email' },
+  )
   @HttpCode(202)
   async forgotPassword(@Body(new ZodValidationPipe(forgotPasswordSchema)) body: { email: string }) {
     await this.auth.requestPasswordReset(body.email);
@@ -81,6 +94,7 @@ export class AuthController {
 
   @Post('password/reset')
   @ApiZodBody(resetPasswordSchema)
+  @RateLimit({ name: 'reset-ip', limit: 20, windowSeconds: 900, by: 'ip' })
   @HttpCode(204)
   async resetPassword(
     @Body(new ZodValidationPipe(resetPasswordSchema)) body: { token: string; newPassword: string },

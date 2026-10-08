@@ -55,6 +55,15 @@ const envSchema = z.object({
   JOB_RETRY_BASE_DELAY: duration('1s'),
   WORKER_PORT: z.coerce.number().int().min(0).max(65_535).default(3001),
   METRICS_TOKEN: z.string().min(16, 'must be at least 16 characters').optional(),
+  RATE_LIMIT: z.enum(['on', 'off']).default('on'),
+  // Express "trust proxy": the number of proxy hops, or their addresses or
+  // subnets ("loopback, 10.0.0.0/8"). Never "true": any client could then
+  // pick its own IP with X-Forwarded-For and dodge rate limits.
+  TRUST_PROXY: z
+    .string()
+    .regex(/^(\d+|[\w.:/, -]+)$/)
+    .refine((v) => v !== 'true', 'use a hop count or proxy addresses, not "true"')
+    .optional(),
   SMTP_URL: z
     .string()
     .startsWith('smtp', 'must be an smtp:// or smtps:// URL')
@@ -114,6 +123,10 @@ export interface AppConfig {
   workerPort: number;
   /** When set, /metrics requires it as a bearer token. */
   metricsToken?: Secret;
+  /** Rate limits on the authentication endpoints (tests turn them off). */
+  rateLimit: boolean;
+  /** Which proxies to trust for the client IP (Express "trust proxy"). */
+  trustProxy?: number | string;
   mail: { smtpUrl: Secret; from: string };
   /** Absent when payments are not configured. */
   stripe?: { secretKey: Secret; webhookSecret: Secret };
@@ -156,6 +169,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     jobRetryBaseDelayMs: e.JOB_RETRY_BASE_DELAY,
     workerPort: e.WORKER_PORT,
     metricsToken: e.METRICS_TOKEN ? new Secret(e.METRICS_TOKEN) : undefined,
+    rateLimit: e.RATE_LIMIT === 'on',
+    trustProxy: e.TRUST_PROXY && /^\d+$/.test(e.TRUST_PROXY) ? Number(e.TRUST_PROXY) : e.TRUST_PROXY,
     mail: { smtpUrl: new Secret(e.SMTP_URL), from: e.MAIL_FROM },
     stripe:
       e.STRIPE_SECRET_KEY && e.STRIPE_WEBHOOK_SECRET

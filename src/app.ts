@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
 import { AppModule, type AppOptions } from './app.module.js';
+import { APP_CONFIG, type AppConfig } from './config/config.js';
 import { serveOpenApi } from './openapi.js';
 import { STOREFRONT_PATHS } from './storefront/storefront.controller.js';
 
@@ -19,6 +20,8 @@ export async function createApp(options: AppOptions): Promise<INestApplication> 
   app.useLogger(app.get(Logger));
   app.useBodyParser('json', { limit: '1mb' });
   app.disable('x-powered-by');
+  const { trustProxy } = app.get<AppConfig>(APP_CONFIG);
+  if (trustProxy !== undefined) app.set('trust proxy', trustProxy);
   app.setGlobalPrefix('api/v1', {
     exclude: ['health', 'ready', 'metrics', '.well-known/jwks.json', ...STOREFRONT_PATHS],
   });
