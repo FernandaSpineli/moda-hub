@@ -1,0 +1,52 @@
+name: moda-hub
+
+# Credentials below are for local development only.
+x-app: &app
+  build: .
+  image: moda-hub:dev
+  environment:
+    NODE_ENV: ${NODE_ENV:-development}
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+    DATABASE_URL: postgres://moda:moda@postgres:5432/moda
+    REDIS_URL: redis://redis:6379/0
+
+services:
+  api:
+    <<: *app
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: moda
+      POSTGRES_PASSWORD: moda
+      POSTGRES_DB: moda
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moda -d moda"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

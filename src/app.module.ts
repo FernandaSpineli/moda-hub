@@ -6,6 +6,8 @@ import { AllExceptionsFilter } from './common/exception.filter.js';
 import { loggerParams } from './common/logging.js';
 import { APP_CONFIG, type AppConfig } from './config/config.js';
 import { HealthController } from './health/health.controller.js';
+import { DatabaseModule } from './platform/database.js';
+import { RedisModule } from './platform/redis.js';
 
 export interface AppOptions {
   config: AppConfig;
@@ -19,7 +21,7 @@ export class AppModule {
     return {
       module: AppModule,
       global: true,
-      imports: [LoggerModule.forRoot(loggerParams(config, logStream))],
+      imports: [LoggerModule.forRoot(loggerParams(config, logStream)), DatabaseModule, RedisModule],
       controllers: [HealthController],
       providers: [
         { provide: APP_CONFIG, useValue: config },

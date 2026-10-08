@@ -16,6 +16,7 @@ export default defineConfig({
         test: {
           name: 'integration',
           include: ['test/**/*.test.ts'],
+          globalSetup: ['test/global-setup.ts'],
           // Containers start once per file; give them time on a cold machine.
           hookTimeout: 120_000,
           testTimeout: 30_000,

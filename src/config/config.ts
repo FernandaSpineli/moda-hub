@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Secret } from './secret.js';
 
 /** Parses durations such as "500ms", "30s", "15m" or "720h" into milliseconds. */
 export function parseDuration(value: string): number {
@@ -26,6 +27,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   SHUTDOWN_TIMEOUT: duration('15s'),
+  DATABASE_URL: z.string({ error: 'required' }).startsWith('postgres', 'must be a postgres:// URL'),
+  REDIS_URL: z.string({ error: 'required' }).startsWith('redis', 'must be a redis:// URL'),
 });
 
 export interface AppConfig {
@@ -33,6 +36,8 @@ export interface AppConfig {
   port: number;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
   shutdownTimeoutMs: number;
+  databaseUrl: Secret;
+  redisUrl: Secret;
 }
 
 export class ConfigError extends Error {
@@ -58,6 +63,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     port: e.PORT,
     logLevel: e.LOG_LEVEL,
     shutdownTimeoutMs: e.SHUTDOWN_TIMEOUT,
+    databaseUrl: new Secret(e.DATABASE_URL),
+    redisUrl: new Secret(e.REDIS_URL),
   };
 }
 

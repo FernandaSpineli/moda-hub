@@ -4,7 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
-import { loadConfig } from '../src/config/config.js';
+import { testConfig } from './support/config.js';
 
 let app: INestApplication;
 const lines: Record<string, unknown>[] = [];
@@ -16,7 +16,7 @@ const logStream = new Writable({
 });
 
 beforeAll(async () => {
-  app = await createApp({ config: loadConfig({ NODE_ENV: 'test' }), logStream });
+  app = await createApp({ config: testConfig(), logStream });
   await app.init();
 });
 afterAll(() => app.close());
@@ -26,6 +26,11 @@ describe('HTTP foundation', () => {
     const res = await request(app.getHttpServer()).get('/health').expect(200);
     expect(res.body).toEqual({ status: 'ok' });
     expect(res.headers['x-request-id']).toMatch(/^[a-f0-9]{32}$/);
+  });
+
+  it('reports readiness of PostgreSQL and Redis', async () => {
+    const res = await request(app.getHttpServer()).get('/ready').expect(200);
+    expect(res.body).toEqual({ status: 'ok', checks: { postgres: 'ok', redis: 'ok' } });
   });
 
   it('answers unknown routes with the error envelope', async () => {
