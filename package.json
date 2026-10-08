@@ -46,7 +46,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
-    "@nestjs/testing": "^12.1.2",
     "@swc-node/register": "^1.12.1",
     "@swc/core": "^1.16.13",
     "@testcontainers/postgresql": "^12.2.0",
@@ -58,7 +57,6 @@
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^5.0.3",
     "drizzle-kit": "^0.31.11",
-    "pino-pretty": "^13.2.0",
     "supertest": "^7.3.1",
     "testcontainers": "^12.2.0",
     "typescript": "~6.0.3",

@@ -29,7 +29,7 @@ export function baseLoggerOptions(config: AppConfig): LoggerOptions {
  * across services) or creates one, and echoes it in the response. Anything
  * else is replaced, so clients cannot inject content into the logs.
  */
-export function requestId(req: IncomingMessage, res: ServerResponse): string {
+function requestId(req: IncomingMessage, res: ServerResponse): string {
   const incoming = req.headers['x-request-id'];
   const id =
     typeof incoming === 'string' && REQUEST_ID.test(incoming) ? incoming : randomUUID().replaceAll('-', '');

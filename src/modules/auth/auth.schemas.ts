@@ -1,15 +1,10 @@
 import { z } from 'zod';
 
-export const emailSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .max(254)
-  .pipe(z.email('must be a valid email address'));
+const emailSchema = z.string().trim().toLowerCase().max(254).pipe(z.email('must be a valid email address'));
 
 // argon2 has no input limit like bcrypt's 72 bytes; the cap only bounds the
 // work an attacker can make the server do per request.
-export const passwordSchema = z
+const passwordSchema = z
   .string()
   .min(8, 'must be at least 8 characters')
   .max(128, 'must be at most 128 characters');

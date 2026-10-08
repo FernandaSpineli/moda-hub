@@ -17,7 +17,7 @@ const RESERVATION_GRACE_MS = 5 * 60_000;
 const REUSE_MARGIN_MS = 2 * 60_000;
 const WEBHOOK_TOLERANCE_SECONDS = 300;
 
-export const paymentErrors = {
+const paymentErrors = {
   disabled: () => new AppError(503, 'PAYMENTS_UNAVAILABLE', 'Payments are not available at the moment'),
   notPayable: () => conflict('ORDER_NOT_PAYABLE', 'This order is not awaiting payment'),
   provider: () =>

@@ -70,7 +70,7 @@ export class StripeGateway implements PaymentGateway {
   }
 }
 
-export function checkoutParams(req: CheckoutRequest): Stripe.Checkout.SessionCreateParams {
+function checkoutParams(req: CheckoutRequest): Stripe.Checkout.SessionCreateParams {
   return {
     mode: 'payment',
     client_reference_id: req.orderId,

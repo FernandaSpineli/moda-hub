@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 
-export const REFRESH_COOKIE = 'refresh_token';
+const REFRESH_COOKIE = 'refresh_token';
 // Only the auth endpoints ever receive the cookie.
 const PATH = '/api/v1/auth';
 

@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, type OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
 
 /** The OpenAPI document, built from the controllers and their Zod schemas. */
-export function buildOpenApi(app: INestApplication): OpenAPIObject {
+function buildOpenApi(app: INestApplication): OpenAPIObject {
   const config = new DocumentBuilder()
     .setTitle('Moda Hub API')
     .setDescription(

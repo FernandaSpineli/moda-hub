@@ -20,7 +20,7 @@ export const updateCategorySchema = createCategorySchema.partial();
 
 // ---------------------------------------------------------------- products
 
-export const productStatus = z.enum(['draft', 'active', 'archived']);
+const productStatus = z.enum(['draft', 'active', 'archived']);
 
 export const createProductSchema = z.strictObject({
   categoryId: uuidParam,

@@ -27,7 +27,7 @@ export interface Session {
   refreshToken: string;
 }
 
-export const toPublicUser = ({ id, email, name, role, createdAt }: UserRecord): PublicUser => ({
+const toPublicUser = ({ id, email, name, role, createdAt }: UserRecord): PublicUser => ({
   id,
   email,
   name,

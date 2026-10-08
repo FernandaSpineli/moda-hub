@@ -15,7 +15,7 @@ const page = readFileSync(new URL('../../public/index.html', import.meta.url), '
  * injected script would not be. Styles stay inline-friendly because the
  * fabric swatches set their colours through style attributes.
  */
-export function contentSecurityPolicy(html: string): string {
+function contentSecurityPolicy(html: string): string {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
     ([, body]) =>
       `'sha256-${createHash('sha256')

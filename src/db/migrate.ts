@@ -4,7 +4,7 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import type pg from 'pg';
 
 /** drizzle/ sits at the project root, both from src/ and from dist/. */
-export const MIGRATIONS_FOLDER = fileURLToPath(new URL('../../drizzle', import.meta.url));
+const MIGRATIONS_FOLDER = fileURLToPath(new URL('../../drizzle', import.meta.url));
 
 /**
  * Applies pending migrations. Drizzle records applied migrations in

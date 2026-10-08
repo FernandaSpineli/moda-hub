@@ -35,7 +35,7 @@ export const RateLimit = (...rules: RateLimitRule[]) =>
   applyDecorators(SetMetadata(RULES, rules), UseGuards(RateLimitGuard));
 
 @Injectable()
-export class RateLimitGuard implements CanActivate {
+class RateLimitGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     @Inject(REDIS) private readonly redis: Redis,
