@@ -1,0 +1,13 @@
+# Environment — never commit real secrets
+.env
+.env.*
+!.env.example
+
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+.idea/
+.vscode/
+.DS_Store
