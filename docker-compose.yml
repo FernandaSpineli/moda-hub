@@ -11,6 +11,10 @@ x-app: &app
     REDIS_URL: redis://redis:6379/0
     APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
     JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?set JWT_PRIVATE_KEY in .env (node scripts/generate-jwt-key.mjs)}
+    ORDER_RESERVATION_TTL: ${ORDER_RESERVATION_TTL:-30m}
+    # Optional: without them checkout answers 503. Test-mode keys only.
+    STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+    STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
 
 services:
   # Applies database migrations once, before the API starts.
@@ -58,6 +62,17 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Forwards Stripe test-mode webhooks to the API:
+  #   docker compose --profile stripe up -d
+  stripe:
+    image: stripe/stripe-cli:v1.53.0
+    profiles: ["stripe"]
+    command: ["listen", "--forward-to", "api:3000/api/v1/payments/webhook"]
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY:-}
+    depends_on:
+      - api
 
 volumes:
   pgdata:

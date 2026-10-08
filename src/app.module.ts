@@ -12,6 +12,8 @@ import { HASH_OPTIONS, type HashOptions } from './modules/auth/password-hasher.j
 import { CartModule } from './modules/cart/cart.module.js';
 import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
+import { PAYMENT_GATEWAY, type PaymentGateway, StripeGateway } from './modules/payments/payment-gateway.js';
+import { PaymentsModule } from './modules/payments/payments.module.js';
 import { DatabaseModule } from './platform/database.js';
 import { RedisModule } from './platform/redis.js';
 
@@ -21,11 +23,19 @@ export interface AppOptions {
   logStream?: DestinationStream;
   /** argon2 cost; tests lower it for speed. Defaults to the library's. */
   hashOptions?: HashOptions;
+  /** Replaces Stripe (tests use a fake); null disables payments. */
+  paymentGateway?: PaymentGateway | null;
 }
 
 @Module({})
 export class AppModule implements NestModule {
-  static register({ config, logStream, hashOptions = {} }: AppOptions): DynamicModule {
+  static register({ config, logStream, hashOptions = {}, paymentGateway }: AppOptions): DynamicModule {
+    const gateway =
+      paymentGateway !== undefined
+        ? paymentGateway
+        : config.stripe
+          ? new StripeGateway(config.stripe.secretKey.reveal())
+          : null;
     return {
       module: AppModule,
       global: true,
@@ -37,14 +47,16 @@ export class AppModule implements NestModule {
         CatalogModule,
         CartModule,
         OrdersModule,
+        PaymentsModule,
       ],
       controllers: [HealthController],
       providers: [
         { provide: APP_CONFIG, useValue: config },
         { provide: HASH_OPTIONS, useValue: hashOptions },
+        { provide: PAYMENT_GATEWAY, useValue: gateway },
         { provide: APP_FILTER, useClass: AllExceptionsFilter },
       ],
-      exports: [APP_CONFIG, HASH_OPTIONS],
+      exports: [APP_CONFIG, HASH_OPTIONS, PAYMENT_GATEWAY],
     };
   }
 

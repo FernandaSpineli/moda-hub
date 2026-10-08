@@ -33,6 +33,8 @@ describe('loadConfig', () => {
     const cfg = loadConfig({
       ...required,
       NODE_ENV: 'production',
+      STRIPE_SECRET_KEY: 'sk_live_example',
+      STRIPE_WEBHOOK_SECRET: 'whsec_example',
       PORT: '8080',
       LOG_LEVEL: 'debug',
       SHUTDOWN_TIMEOUT: '',
@@ -90,5 +92,40 @@ describe('parseDuration', () => {
 
   it.each(['', '15', '1d', '-5m', 'soon'])('rejects %j', (input) => {
     expect(() => parseDuration(input)).toThrow();
+  });
+});
+
+describe('Stripe keys', () => {
+  it.each([
+    ['not configured outside production', {}, null],
+    ['test keys', { STRIPE_SECRET_KEY: 'sk_test_1', STRIPE_WEBHOOK_SECRET: 'whsec_1' }, null],
+    ['missing in production', { NODE_ENV: 'production' }, 'required in production'],
+    ['only one of the pair', { STRIPE_SECRET_KEY: 'sk_test_1' }, 'set together'],
+    [
+      'a publishable key',
+      { STRIPE_SECRET_KEY: 'pk_test_1', STRIPE_WEBHOOK_SECRET: 'whsec_1' },
+      'secret or restricted',
+    ],
+    [
+      'a live key outside production',
+      { STRIPE_SECRET_KEY: 'sk_live_1', STRIPE_WEBHOOK_SECRET: 'whsec_1' },
+      'live keys',
+    ],
+    ['a bad webhook secret', { STRIPE_SECRET_KEY: 'sk_test_1', STRIPE_WEBHOOK_SECRET: 'nope' }, 'whsec_'],
+  ])('%s', (_name, vars, error) => {
+    const load = () => loadConfig({ ...required, ...vars });
+    if (error) expect(load).toThrow(error as string);
+    else expect(load).not.toThrow();
+  });
+
+  it('accepts live keys in production and keeps them secret', () => {
+    const cfg = loadConfig({
+      ...required,
+      NODE_ENV: 'production',
+      STRIPE_SECRET_KEY: 'sk_live_1',
+      STRIPE_WEBHOOK_SECRET: 'whsec_1',
+    });
+    expect(cfg.stripe?.secretKey.reveal()).toBe('sk_live_1');
+    expect(JSON.stringify(cfg)).not.toContain('sk_live_1');
   });
 });

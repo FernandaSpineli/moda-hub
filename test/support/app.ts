@@ -4,8 +4,10 @@ import type { INestApplication } from '@nestjs/common';
 import pg from 'pg';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
+import type { PaymentGateway } from '../../src/modules/payments/payment-gateway.js';
 import { testConfig } from './config.js';
 import { createTestDatabase } from './database.js';
+import { FakeGateway } from './fake-gateway.js';
 
 export interface TestApp {
   app: INestApplication;
@@ -14,11 +16,16 @@ export interface TestApp {
   sql: pg.Pool;
   /** Every log line written so far, parsed. */
   logs: Record<string, unknown>[];
+  /** The stand-in for Stripe (null when payments are disabled). */
+  gateway: FakeGateway | null;
   close: () => Promise<void>;
 }
 
 /** The real application, wired as in production, on a fresh database. */
-export async function startTestApp(overrides: Record<string, string> = {}): Promise<TestApp> {
+export async function startTestApp(
+  options: { env?: Record<string, string>; paymentGateway?: PaymentGateway | null } = {},
+): Promise<TestApp> {
+  const gateway = options.paymentGateway === undefined ? new FakeGateway() : options.paymentGateway;
   const db = await createTestDatabase();
   const logs: Record<string, unknown>[] = [];
   const logStream = new Writable({
@@ -28,7 +35,8 @@ export async function startTestApp(overrides: Record<string, string> = {}): Prom
     },
   });
   const app = await createApp({
-    config: testConfig(db.url, overrides),
+    config: testConfig(db.url, options.env),
+    paymentGateway: gateway,
     logStream,
     // argon2's production cost (64 MiB per hash) would make the suite slow.
     hashOptions: { memoryCost: 1024, timeCost: 1, parallelism: 1 },
@@ -40,6 +48,7 @@ export async function startTestApp(overrides: Record<string, string> = {}): Prom
     http: request(app.getHttpServer()),
     sql,
     logs,
+    gateway: gateway instanceof FakeGateway ? gateway : null,
     close: async () => {
       await app.close();
       await sql.end();

@@ -48,7 +48,33 @@ const envSchema = z.object({
   REFRESH_TOKEN_TTL: duration('720h'),
   PASSWORD_RESET_TTL: duration('30m'),
   ORDER_RESERVATION_TTL: duration('30m'),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
 });
+
+/**
+ * Stripe is optional outside production (checkout answers 503 without it).
+ * Live keys move real money, so they are refused anywhere but production.
+ */
+function checkStripe(e: z.infer<typeof envSchema>, ctx: z.RefinementCtx): void {
+  const key = e.STRIPE_SECRET_KEY;
+  const hook = e.STRIPE_WEBHOOK_SECRET;
+  const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
+  if (!key && !hook) {
+    if (e.NODE_ENV === 'production') issue('STRIPE_SECRET_KEY', 'required in production');
+    return;
+  }
+  if (!key || !hook) {
+    issue('STRIPE_SECRET_KEY', 'STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET must be set together');
+    return;
+  }
+  const live = /^(sk|rk)_live_/.test(key);
+  if (!live && !/^(sk|rk)_test_/.test(key))
+    issue('STRIPE_SECRET_KEY', 'must be a Stripe secret or restricted key (sk_/rk_)');
+  if (live && e.NODE_ENV !== 'production')
+    issue('STRIPE_SECRET_KEY', 'live keys are only accepted when NODE_ENV=production');
+  if (!hook.startsWith('whsec_')) issue('STRIPE_WEBHOOK_SECRET', 'must start with whsec_');
+}
 
 export interface AppConfig {
   env: 'development' | 'test' | 'production';
@@ -68,6 +94,8 @@ export interface AppConfig {
   };
   /** How long stock stays reserved for an unpaid order. */
   orderReservationTtlMs: number;
+  /** Absent when payments are not configured. */
+  stripe?: { secretKey: Secret; webhookSecret: Secret };
 }
 
 export class ConfigError extends Error {
@@ -82,7 +110,7 @@ export class ConfigError extends Error {
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   // Empty strings mean "unset", as with an empty line in .env.
   const present = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== ''));
-  const parsed = envSchema.safeParse(present);
+  const parsed = envSchema.superRefine(checkStripe).safeParse(present);
   if (!parsed.success) {
     const problems = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
     throw new ConfigError(`invalid configuration:\n  ${problems.join('\n  ')}`);
@@ -103,6 +131,10 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
       passwordResetTtlMs: e.PASSWORD_RESET_TTL,
     },
     orderReservationTtlMs: e.ORDER_RESERVATION_TTL,
+    stripe:
+      e.STRIPE_SECRET_KEY && e.STRIPE_WEBHOOK_SECRET
+        ? { secretKey: new Secret(e.STRIPE_SECRET_KEY), webhookSecret: new Secret(e.STRIPE_WEBHOOK_SECRET) }
+        : undefined,
   };
 }
 
