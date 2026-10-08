@@ -54,6 +54,7 @@ describe('placing an order', () => {
       subtotalCents: 2 * 8990 + 31990,
       shippingCents: 0,
       totalCents: 2 * 8990 + 31990,
+      itemCount: 3,
     });
     expect(new Date(order.expiresAt).getTime()).toBeGreaterThan(Date.now() + 29 * 60_000);
     expect(

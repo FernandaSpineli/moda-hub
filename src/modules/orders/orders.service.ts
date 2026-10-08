@@ -31,16 +31,15 @@ export interface Order {
   shippingCents: number;
   totalCents: number;
   expiresAt: Date | null;
+  /** Units across all items. */
+  itemCount: number;
   items: OrderItem[];
   statusHistory: { from: OrderStatus | null; to: OrderStatus; reason: string; at: Date }[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-export type OrderSummary = Omit<Order, 'items' | 'statusHistory' | 'userId'> & {
-  userId: string;
-  itemCount: number;
-};
+export type OrderSummary = Omit<Order, 'items' | 'statusHistory'>;
 
 export const orderErrors = {
   notFound: () => notFound('ORDER_NOT_FOUND', 'Order not found'),
@@ -239,6 +238,7 @@ export async function loadOrder(db: DbOrTx, orderId: string): Promise<Order | un
   ]);
   return {
     ...toSummary(row),
+    itemCount: items.rows.reduce((n, i) => n + Number(i.quantity), 0),
     items: items.rows.map((i) => ({
       variantId: i.variant_id as string,
       productName: i.product_name as string,
@@ -258,7 +258,7 @@ export async function loadOrder(db: DbOrTx, orderId: string): Promise<Order | un
   };
 }
 
-function toSummary(r: Record<string, unknown>): OrderSummary & { itemCount: number } {
+function toSummary(r: Record<string, unknown>): OrderSummary {
   return {
     id: r.id as string,
     userId: r.user_id as string,
