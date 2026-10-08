@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
-import pino from 'pino';
+import pino, { type DestinationStream } from 'pino';
 import { baseLoggerOptions } from './common/logging.js';
 import { ConfigError, loadConfig } from './config/config.js';
 import { runMigrations } from './db/migrate.js';
@@ -10,10 +10,17 @@ import { AuthRepository } from './modules/auth/auth.repository.js';
 
 const usage = 'usage: node dist/cli.js migrate | user promote <email>';
 
-/** Operational commands, run as one-off containers (see docker-compose.yml). */
-async function main(args: string[]): Promise<void> {
-  const config = loadConfig(process.env);
-  const logger = pino(baseLoggerOptions(config));
+/**
+ * Operational commands, run as one-off containers (see docker-compose.yml).
+ * Exported so the tests run the same code against their database.
+ */
+export async function runCli(
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  logStream?: DestinationStream,
+): Promise<void> {
+  const config = loadConfig(env);
+  const logger = logStream ? pino(baseLoggerOptions(config), logStream) : pino(baseLoggerOptions(config));
   const pool = new pg.Pool({ connectionString: config.databaseUrl.reveal(), max: 1 });
   try {
     switch (args[0]) {
@@ -40,9 +47,11 @@ async function main(args: string[]): Promise<void> {
   }
 }
 
-main(process.argv.slice(2)).catch((err: unknown) => {
-  process.stderr.write(
-    `moda-hub: ${err instanceof ConfigError ? err.message : String((err as Error)?.stack ?? err)}\n`,
-  );
-  process.exit(1);
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runCli(process.argv.slice(2), process.env).catch((err: unknown) => {
+    process.stderr.write(
+      `moda-hub: ${err instanceof ConfigError ? err.message : String((err as Error)?.stack ?? err)}\n`,
+    );
+    process.exit(1);
+  });
+}
