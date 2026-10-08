@@ -9,6 +9,7 @@ import { APP_CONFIG, type AppConfig } from './config/config.js';
 import { HealthController } from './health/health.controller.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { HASH_OPTIONS, type HashOptions } from './modules/auth/password-hasher.js';
+import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { DatabaseModule } from './platform/database.js';
 import { RedisModule } from './platform/redis.js';
 
@@ -31,6 +32,7 @@ export class AppModule implements NestModule {
         DatabaseModule,
         RedisModule,
         AuthModule,
+        CatalogModule,
       ],
       controllers: [HealthController],
       providers: [
