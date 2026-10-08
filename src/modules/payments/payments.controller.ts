@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import type { RawBodyRequest } from '@nestjs/common';
 import { Controller, Headers, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import type { Queue } from 'bullmq';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
@@ -18,6 +19,7 @@ const orderId = {
   },
 };
 
+@ApiTags('payments')
 @Controller()
 export class PaymentsController {
   constructor(
@@ -27,6 +29,7 @@ export class PaymentsController {
 
   /** 201 with a new Stripe Checkout session, or 200 with the one already open. */
   @Post('orders/:id/checkout')
+  @ApiBearerAuth()
   async checkout(
     @CurrentUser() user: Principal,
     @Param('id', orderId) id: string,
@@ -44,6 +47,11 @@ export class PaymentsController {
    */
   @Public()
   @Post('payments/webhook')
+  @ApiHeader({
+    name: 'Stripe-Signature',
+    required: true,
+    description: 'Verified against STRIPE_WEBHOOK_SECRET',
+  })
   @HttpCode(200)
   async webhook(@Req() req: RawBodyRequest<Request>, @Headers('stripe-signature') signature?: string) {
     const eventId = await this.payments.receive(req.rawBody, signature);

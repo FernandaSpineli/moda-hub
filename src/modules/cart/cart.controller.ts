@@ -1,5 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
+import { ApiZodBody } from '../../common/openapi.js';
 import { ZodValidationPipe } from '../../common/zod.pipe.js';
 import { CurrentUser } from '../auth/decorators.js';
 import type { Principal } from '../auth/principal.js';
@@ -22,6 +24,8 @@ const variantParam = {
   },
 };
 
+@ApiTags('cart')
+@ApiBearerAuth()
 @Controller('cart')
 export class CartController {
   constructor(private readonly cart: CartService) {}
@@ -38,6 +42,7 @@ export class CartController {
   }
 
   @Post('items')
+  @ApiZodBody(addItemSchema)
   @HttpCode(200)
   add(
     @CurrentUser() user: Principal,
@@ -47,6 +52,7 @@ export class CartController {
   }
 
   @Patch('items/:variantId')
+  @ApiZodBody(updateItemSchema)
   update(
     @CurrentUser() user: Principal,
     @Param('variantId', variantParam) variantId: string,

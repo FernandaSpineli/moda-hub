@@ -1,6 +1,8 @@
 import { Body, Controller, Get, HttpCode, Inject, Patch, Put } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { ApiZodBody } from '../../common/openapi.js';
 import { ZodValidationPipe } from '../../common/zod.pipe.js';
 import { users } from '../../db/schema/index.js';
 import { DB, type Db } from '../../platform/database.js';
@@ -13,7 +15,7 @@ import type { Principal } from '../auth/principal.js';
 // Email changes need a verified flow of their own and are deliberately not
 // accepted here: with a stolen access token, changing the email would be one
 // password reset away from an account takeover.
-const updateProfileSchema = z.strictObject({ name: nameSchema.optional() });
+export const updateProfileSchema = z.strictObject({ name: nameSchema.optional() });
 
 const profileColumns = {
   id: users.id,
@@ -24,6 +26,8 @@ const profileColumns = {
   updatedAt: users.updatedAt,
 };
 
+@ApiTags('profile')
+@ApiBearerAuth()
 @Controller('users/me')
 export class UsersController {
   constructor(
@@ -39,6 +43,7 @@ export class UsersController {
   }
 
   @Patch()
+  @ApiZodBody(updateProfileSchema)
   async update(
     @CurrentUser() user: Principal,
     @Body(new ZodValidationPipe(updateProfileSchema)) body: z.infer<typeof updateProfileSchema>,
@@ -54,6 +59,7 @@ export class UsersController {
   }
 
   @Put('password')
+  @ApiZodBody(changePasswordSchema)
   @HttpCode(204)
   async changePassword(
     @CurrentUser() user: Principal,

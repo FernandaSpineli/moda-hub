@@ -1,4 +1,5 @@
 import { Controller, Get, HttpCode, Inject, Res } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { Redis } from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
@@ -9,6 +10,7 @@ import { REDIS } from '../platform/redis.js';
 
 const CHECK_TIMEOUT_MS = 2_000;
 
+@ApiTags('operations')
 @Public()
 @Controller()
 export class HealthController {

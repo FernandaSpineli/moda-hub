@@ -1,4 +1,5 @@
 allowBuilds:
+  '@scarf/scarf': false
   '@swc/core': true
   argon2: true
   cpu-features: false

@@ -1,5 +1,7 @@
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
+import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { ApiZodBody } from '../../common/openapi.js';
 import { ZodValidationPipe } from '../../common/zod.pipe.js';
 import { APP_CONFIG, type AppConfig } from '../../config/config.js';
 import {
@@ -15,6 +17,7 @@ import { Public } from './decorators.js';
 import { clearRefreshCookie, readRefreshCookie, setRefreshCookie } from './refresh-cookie.js';
 import { TokenService } from './token.service.js';
 
+@ApiTags('auth')
 @Public()
 @Controller('auth')
 export class AuthController {
@@ -28,6 +31,7 @@ export class AuthController {
   }
 
   @Post('register')
+  @ApiZodBody(registerSchema)
   async register(
     @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
     @Res({ passthrough: true }) res: Response,
@@ -36,6 +40,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @ApiZodBody(loginSchema)
   @HttpCode(200)
   async login(
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
@@ -45,6 +50,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @ApiCookieAuth('refresh_token')
   @HttpCode(200)
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     try {
@@ -58,6 +64,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @ApiCookieAuth('refresh_token')
   @HttpCode(204)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
     await this.auth.logout(readRefreshCookie(req));
@@ -65,6 +72,7 @@ export class AuthController {
   }
 
   @Post('password/forgot')
+  @ApiZodBody(forgotPasswordSchema)
   @HttpCode(202)
   async forgotPassword(@Body(new ZodValidationPipe(forgotPasswordSchema)) body: { email: string }) {
     await this.auth.requestPasswordReset(body.email);
@@ -72,6 +80,7 @@ export class AuthController {
   }
 
   @Post('password/reset')
+  @ApiZodBody(resetPasswordSchema)
   @HttpCode(204)
   async resetPassword(
     @Body(new ZodValidationPipe(resetPasswordSchema)) body: { token: string; newPassword: string },
@@ -86,6 +95,7 @@ export class AuthController {
 }
 
 /** Publishes the token-signing public key, so other services can verify tokens. */
+@ApiTags('auth')
 @Public()
 @Controller('.well-known')
 export class JwksController {

@@ -1,9 +1,11 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Queue } from 'bullmq';
 import { PinoLogger } from 'nestjs-pino';
 import { z } from 'zod';
 import { notFound } from '../common/app-error.js';
+import { ApiZodQuery } from '../common/openapi.js';
 import { ZodValidationPipe } from '../common/zod.pipe.js';
 import { RequireRole } from '../modules/auth/decorators.js';
 import { QUEUES, type QueueName, queueNames } from './queues.js';
@@ -14,6 +16,8 @@ const listSchema = z.strictObject({
 });
 
 /** The dead-letter queue: jobs that used up their retries, for an admin to inspect and retry. */
+@ApiTags('admin: jobs')
+@ApiBearerAuth()
 @RequireRole('admin')
 @Controller('admin/jobs')
 export class AdminJobsController {
@@ -36,6 +40,7 @@ export class AdminJobsController {
   }
 
   @Get('failed')
+  @ApiZodQuery(listSchema)
   async failed(@Query(new ZodValidationPipe(listSchema)) q: z.infer<typeof listSchema>) {
     const names = q.queue ? [q.queue] : queueNames;
     const jobs = (await Promise.all(names.map((n) => this.queues[n].getFailed(0, q.limit - 1)))).flat();

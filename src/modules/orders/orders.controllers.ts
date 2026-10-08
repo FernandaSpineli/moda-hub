@@ -10,9 +10,11 @@ import {
   Res,
   UseInterceptors,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { IdempotencyInterceptor } from '../../common/idempotency.interceptor.js';
+import { ApiZodBody, ApiZodQuery } from '../../common/openapi.js';
 import { ZodValidationPipe } from '../../common/zod.pipe.js';
 import { CurrentUser, RequireRole } from '../auth/decorators.js';
 import type { Principal } from '../auth/principal.js';
@@ -41,12 +43,19 @@ const setStatusSchema = z.strictObject({
   reason: z.string().trim().max(200).optional(),
 });
 
+@ApiTags('orders')
+@ApiBearerAuth()
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
 
   /** Places an order for the cart. Send an Idempotency-Key to make retries safe. */
   @Post()
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'Retries with the same key replay the first response for 24 hours',
+  })
   @UseInterceptors(IdempotencyInterceptor)
   async place(@CurrentUser() user: Principal, @Res({ passthrough: true }) res: Response) {
     const order = await this.orders.place(user.userId);
@@ -55,6 +64,7 @@ export class OrdersController {
   }
 
   @Get()
+  @ApiZodQuery(pageSchema)
   list(
     @CurrentUser() user: Principal,
     @Query(new ZodValidationPipe(pageSchema)) q: z.infer<typeof pageSchema>,
@@ -74,12 +84,15 @@ export class OrdersController {
   }
 }
 
+@ApiTags('admin: orders')
+@ApiBearerAuth()
 @RequireRole('admin')
 @Controller('admin/orders')
 export class OrdersAdminController {
   constructor(private readonly orders: OrdersService) {}
 
   @Get()
+  @ApiZodQuery(adminListSchema)
   list(@Query(new ZodValidationPipe(adminListSchema)) q: z.infer<typeof adminListSchema>) {
     return this.orders.list({ userId: q.userId, status: q.status }, q.cursor, q.limit);
   }
@@ -90,6 +103,7 @@ export class OrdersAdminController {
   }
 
   @Patch(':id/status')
+  @ApiZodBody(setStatusSchema)
   setStatus(
     @Param('id', orderId) id: string,
     @Body(new ZodValidationPipe(setStatusSchema)) body: z.infer<typeof setStatusSchema>,

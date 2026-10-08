@@ -1,5 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
+import { ApiZodBody, ApiZodQuery } from '../../common/openapi.js';
 import { ZodValidationPipe } from '../../common/zod.pipe.js';
 import { Public, RequireRole } from '../auth/decorators.js';
 import { InventoryService } from '../inventory/inventory.service.js';
@@ -40,6 +42,7 @@ const setStockSchema = z.strictObject({
   lowStockThreshold: z.number().int().min(0).max(1_000).optional(),
 });
 
+@ApiTags('catalog')
 @Public()
 @Controller()
 export class CatalogController {
@@ -54,6 +57,7 @@ export class CatalogController {
   }
 
   @Get('products')
+  @ApiZodQuery(listProductsSchema)
   list(@Query(new ZodValidationPipe(listProductsSchema)) query: ListProductsQuery) {
     return this.products.list(query, false);
   }
@@ -64,6 +68,8 @@ export class CatalogController {
   }
 }
 
+@ApiTags('admin: catalog')
+@ApiBearerAuth()
 @RequireRole('admin')
 @Controller('admin')
 export class CatalogAdminController {
@@ -74,6 +80,7 @@ export class CatalogAdminController {
   ) {}
 
   @Post('categories')
+  @ApiZodBody(createCategorySchema)
   createCategory(
     @Body(new ZodValidationPipe(createCategorySchema)) body: z.infer<typeof createCategorySchema>,
   ) {
@@ -81,6 +88,7 @@ export class CatalogAdminController {
   }
 
   @Patch('categories/:id')
+  @ApiZodBody(updateCategorySchema)
   updateCategory(
     @Param('id', categoryId) id: string,
     @Body(new ZodValidationPipe(updateCategorySchema)) body: z.infer<typeof updateCategorySchema>,
@@ -95,6 +103,7 @@ export class CatalogAdminController {
   }
 
   @Get('products')
+  @ApiZodQuery(adminListProductsSchema)
   listProducts(@Query(new ZodValidationPipe(adminListProductsSchema)) query: ListProductsQuery) {
     return this.products.list(query, true);
   }
@@ -105,11 +114,13 @@ export class CatalogAdminController {
   }
 
   @Post('products')
+  @ApiZodBody(createProductSchema)
   createProduct(@Body(new ZodValidationPipe(createProductSchema)) body: z.infer<typeof createProductSchema>) {
     return this.products.create(body);
   }
 
   @Patch('products/:id')
+  @ApiZodBody(updateProductSchema)
   updateProduct(
     @Param('id', productId) id: string,
     @Body(new ZodValidationPipe(updateProductSchema)) body: z.infer<typeof updateProductSchema>,
@@ -124,6 +135,7 @@ export class CatalogAdminController {
   }
 
   @Post('products/:id/variants')
+  @ApiZodBody(createVariantSchema)
   addVariant(
     @Param('id', productId) id: string,
     @Body(new ZodValidationPipe(createVariantSchema)) body: z.infer<typeof createVariantSchema>,
@@ -132,6 +144,7 @@ export class CatalogAdminController {
   }
 
   @Patch('variants/:id')
+  @ApiZodBody(updateVariantSchema)
   updateVariant(
     @Param('id', variantId) id: string,
     @Body(new ZodValidationPipe(updateVariantSchema)) body: z.infer<typeof updateVariantSchema>,
@@ -140,6 +153,7 @@ export class CatalogAdminController {
   }
 
   @Post('products/:id/images')
+  @ApiZodBody(createImageSchema)
   addImage(
     @Param('id', productId) id: string,
     @Body(new ZodValidationPipe(createImageSchema)) body: z.infer<typeof createImageSchema>,
@@ -159,6 +173,7 @@ export class CatalogAdminController {
   }
 
   @Put('variants/:id/inventory')
+  @ApiZodBody(setStockSchema)
   setStock(
     @Param('id', variantId) id: string,
     @Body(new ZodValidationPipe(setStockSchema)) body: z.infer<typeof setStockSchema>,

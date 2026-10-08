@@ -1,6 +1,7 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Controller, Get, Header, Inject, type OnModuleInit, Req } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
+import { ApiTags } from '@nestjs/swagger';
 import { Gauge, type Registry } from '@prometheus-io/client';
 import type { Queue } from 'bullmq';
 import type { Request } from 'express';
@@ -15,6 +16,7 @@ import { METRICS_REGISTRY, metricsAuthorized } from '../platform/metrics.js';
 const JOB_STATES = ['waiting', 'active', 'delayed', 'failed'] as const;
 
 /** Prometheus scrape endpoint for the API, plus queue and outbox gauges read at scrape time. */
+@ApiTags('operations')
 @Public()
 @Controller()
 export class MetricsController implements OnModuleInit {
