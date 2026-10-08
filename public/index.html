@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moda Hub</title>
+<meta name="description" content="Loja demo da API Moda Hub: catálogo, sacola, pedidos e pagamento.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23c8336e' d='M4 4h24v20l-3 4-3-4-3 4-3-4-3 4-3-4-3 4-3-4z'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400&family=Hanken+Grotesk:wght@400;500;600&display=swap">
+<style>
+:root {
+  --paper: #e9ede6;
+  --paper-raised: #f5f7f3;
+  --rule: #d3d9ce;
+  --ink: #26222c;
+  --muted: #6b6670;
+  --chalk: #c8336e;
+  --chalk-ink: #ffffff;
+  --ok: #2f6b4f;
+  --display: "Bodoni Moda", "Didot", Georgia, serif;
+  --text: "Hanken Grotesk", system-ui, sans-serif;
+  --pink: 9px;
+  /* Keeps white and black fabric visible against the page. */
+  --edge: rgb(38 34 44 / .14);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1e1d22;
+    --paper-raised: #28262d;
+    --rule: #3a3740;
+    --ink: #ecebef;
+    --muted: #a7a2ad;
+    --chalk: #f0719f;
+    --chalk-ink: #1e1d22;
+    --ok: #7cc4a0;
+    --edge: rgb(236 235 239 / .16);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #1e1d22; --paper-raised: #28262d; --rule: #3a3740; --ink: #ecebef;
+  --muted: #a7a2ad; --chalk: #f0719f; --chalk-ink: #1e1d22; --ok: #7cc4a0; --edge: rgb(236 235 239 / .16); color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 1rem/1.55 var(--text);
+  font-feature-settings: "tnum" 0;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--chalk); outline-offset: 3px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.price, .num { font-variant-numeric: tabular-nums lining-nums; }
+
+/* ---------------------------------------------------------------- header */
+.bar {
+  position: sticky; top: 0; z-index: 5;
+  display: grid; grid-template-columns: auto 1fr auto auto; gap: 12px; align-items: center;
+  padding: 12px 24px;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--rule);
+}
+.mark { font: 600 1.6rem/1 var(--display); text-decoration: none; letter-spacing: -.01em; }
+.search { max-width: 420px; justify-self: center; width: 100%; }
+.search input {
+  width: 100%; padding: 9px 14px; border: 1px solid var(--rule); border-radius: 999px;
+  background: var(--paper-raised);
+}
+.text-button {
+  background: none; border: 0; padding: 8px 4px; text-decoration: underline;
+  text-decoration-color: var(--rule); text-underline-offset: 5px;
+}
+.text-button:hover { text-decoration-color: var(--chalk); }
+.bag-button {
+  display: inline-flex; gap: 8px; align-items: center;
+  border: 1px solid var(--ink); background: var(--ink); color: var(--paper);
+  border-radius: 999px; padding: 8px 16px;
+}
+.bag-button .num { min-width: 1ch; }
+
+/* ---------------------------------------------------------------- notice */
+.notice {
+  margin: 16px 24px 0; padding: 14px 18px; border-left: 3px solid var(--chalk);
+  background: var(--paper-raised);
+}
+.notice[hidden] { display: none; }
+.notice.ok { border-left-color: var(--ok); }
+
+/* ---------------------------------------------------------------- intro */
+.intro { padding: 56px 24px 8px; max-width: 1240px; margin: 0 auto; }
+.intro h1 {
+  font: 400 clamp(2.2rem, 5.6vw, 4.4rem)/1.02 var(--display);
+  font-variation-settings: "opsz" 96;
+  letter-spacing: -.02em; margin: 0; max-width: 16ch;
+}
+.intro p { color: var(--muted); max-width: 52ch; margin: 18px 0 0; font-size: 1.05rem; }
+
+/* The colour strip: every colour in the catalogue, cut with pinking shears. */
+.strip {
+  list-style: none; margin: 36px 0 0; padding: 0;
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin;
+  padding-bottom: 6px;
+}
+.strip button {
+  position: relative; flex: 0 0 auto; width: 74px; height: 112px; border: 0; padding: 0;
+  background: var(--c); border-radius: 2px; box-shadow: inset 0 0 0 1px var(--edge);
+  -webkit-mask: var(--pinked); mask: var(--pinked);
+  transition: transform .18s ease;
+}
+.strip button[aria-pressed="true"] { transform: translateY(-10px); }
+.strip button:hover { transform: translateY(-4px); }
+.strip button[aria-pressed="true"]:hover { transform: translateY(-10px); }
+.strip-label { margin: 10px 0 0; color: var(--muted); font-size: .92rem; min-height: 1.5em; }
+:root { --pinked: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(2 * var(--pink)) 100%; }
+
+/* ---------------------------------------------------------------- fabric */
+/* A product is drawn as a piece of its own fabric: one band per colour,
+   with a texture that follows the material. */
+.cloth {
+  position: relative; aspect-ratio: 4 / 5; display: flex; overflow: hidden;
+  -webkit-mask: var(--pinked); mask: var(--pinked);
+  transition: transform .25s ease, filter .25s ease;
+}
+.cloth i { flex: 1; background: var(--c); }
+.cloth::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 0 1px var(--edge); }
+.weave-linen::after {
+  background:
+    repeating-linear-gradient(0deg, rgb(255 255 255 / .07) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgb(0 0 0 / .06) 0 1px, transparent 1px 5px);
+}
+.weave-satin::after { background: linear-gradient(115deg, transparent 30%, rgb(255 255 255 / .22) 45%, transparent 60%); }
+.weave-denim::after { background: repeating-linear-gradient(60deg, rgb(255 255 255 / .12) 0 2px, transparent 2px 6px); }
+.weave-knit::after { background: repeating-linear-gradient(90deg, rgb(0 0 0 / .12) 0 3px, rgb(255 255 255 / .05) 3px 7px); }
+.weave-wool::after {
+  background:
+    repeating-linear-gradient(45deg, rgb(255 255 255 / .06) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, rgb(0 0 0 / .07) 0 1px, transparent 1px 3px);
+}
+.weave-leather::after { background: radial-gradient(circle at 30% 20%, rgb(255 255 255 / .18), transparent 55%); }
+.weave-print::after { background: radial-gradient(circle, rgb(255 255 255 / .35) 1.5px, transparent 2px) 0 0 / 14px 14px; }
+
+/* ---------------------------------------------------------------- shop layout */
+.shop {
+  display: grid; grid-template-columns: 220px 1fr; gap: 40px;
+  max-width: 1240px; margin: 0 auto; padding: 40px 24px 80px;
+}
+.filters { position: sticky; top: 84px; align-self: start; display: grid; gap: 28px; }
+.filters h2 { font: 500 1.15rem/1.2 var(--display); margin: 0 0 10px; }
+.tree { list-style: none; margin: 0; padding: 0; }
+.tree ul { list-style: none; padding-left: 14px; margin: 0; }
+.tree button {
+  background: none; border: 0; padding: 4px 0; text-align: left; color: var(--muted);
+}
+.tree button[aria-current="true"] { color: var(--ink); font-weight: 600; }
+.tree button[aria-current="true"]::before { content: ""; display: inline-block; width: 10px; height: 2px; background: var(--chalk); vertical-align: middle; margin-right: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip input { position: absolute; opacity: 0; pointer-events: none; }
+.chip span {
+  display: inline-block; min-width: 40px; text-align: center; padding: 5px 10px;
+  border: 1px solid var(--rule); border-radius: 4px; background: var(--paper-raised);
+}
+.chip input:checked + span { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+.chip input:focus-visible + span { outline: 2px solid var(--chalk); outline-offset: 2px; }
+.check { display: flex; gap: 10px; align-items: center; padding: 3px 0; }
+.check input { accent-color: var(--chalk); width: 16px; height: 16px; }
+.filters select { width: 100%; padding: 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper-raised); }
+.clear { justify-self: start; }
+
+.result-line { margin: 0 0 18px; color: var(--muted); }
+.grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 36px 24px;
+}
+.card button { all: unset; display: block; width: 100%; cursor: pointer; }
+.card button:focus-visible { outline: 2px solid var(--chalk); outline-offset: 6px; }
+.card h3 { font: 400 1.25rem/1.2 var(--display); margin: 14px 0 4px; }
+.card .meta { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: .93rem; }
+.card:hover .cloth { transform: rotate(-1.2deg); }
+.card.sold-out .cloth { filter: grayscale(.85) opacity(.55); }
+.flag { color: var(--chalk); font-weight: 600; }
+.more { margin: 40px auto 0; display: block; }
+
+/* ---------------------------------------------------------------- dialogs */
+dialog {
+  border: 0; padding: 0; color: var(--ink); background: var(--paper-raised);
+  max-width: min(960px, calc(100vw - 32px)); width: 100%;
+  border-radius: 6px; box-shadow: 0 30px 80px rgb(20 16 24 / .35);
+}
+dialog::backdrop { background: rgb(30 26 34 / .45); }
+dialog[open] { animation: rise .22s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+.dialog-close {
+  position: absolute; top: 12px; right: 12px; z-index: 1; width: 36px; height: 36px;
+  border: 1px solid var(--rule); border-radius: 50%; background: var(--paper-raised); font-size: 1.1rem; line-height: 1;
+}
+.drawer {
+  margin: 0 0 0 auto; height: 100dvh; max-height: 100dvh; max-width: 440px; border-radius: 0;
+}
+.drawer[open] { animation: slide .25s ease-out; display: flex; flex-direction: column; }
+@keyframes slide { from { transform: translateX(40px); opacity: 0; } }
+.small { max-width: 440px; }
+.pad { padding: 28px; }
+dialog h2 { font: 400 1.9rem/1.1 var(--display); margin: 0 0 6px; }
+
+.product { display: grid; grid-template-columns: 1fr 1fr; }
+.product .cloth { aspect-ratio: auto; min-height: 100%; -webkit-mask: none; mask: none; }
+.product .info { padding: 40px 32px 32px; display: grid; gap: 18px; align-content: start; }
+.product .category { color: var(--muted); margin: 0; }
+.big-price { font-size: 1.4rem; }
+.was { color: var(--muted); text-decoration: line-through; margin-left: 10px; font-size: 1rem; }
+.off { color: var(--chalk); font-weight: 600; margin-left: 8px; font-size: 1rem; }
+fieldset { border: 0; padding: 0; margin: 0; }
+legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
+legend output { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.colours { display: flex; gap: 10px; flex-wrap: wrap; }
+.colour input { position: absolute; opacity: 0; }
+.colour span {
+  display: block; width: 34px; height: 34px; border-radius: 50%; background: var(--c);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+.colour input:checked + span { box-shadow: 0 0 0 2px var(--paper-raised), 0 0 0 4px var(--ink); }
+.colour input:focus-visible + span { outline: 2px solid var(--chalk); outline-offset: 5px; }
+.chip input:disabled + span { color: var(--muted); text-decoration: line-through; opacity: .6; cursor: not-allowed; }
+.buy { display: flex; gap: 10px; }
+.qty { width: 74px; padding: 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); }
+.primary {
+  flex: 1; border: 0; border-radius: 4px; padding: 13px 18px;
+  background: var(--chalk); color: var(--chalk-ink); font-weight: 600;
+}
+.primary:disabled { opacity: .45; cursor: not-allowed; }
+.secondary { border: 1px solid var(--ink); background: transparent; border-radius: 4px; padding: 11px 16px; }
+details { border-top: 1px solid var(--rule); padding-top: 12px; }
+summary { cursor: pointer; font-weight: 600; }
+.form-error { color: var(--chalk); margin: 0; min-height: 1.3em; }
+.hint { color: var(--muted); font-size: .92rem; margin: 0; }
+
+/* bag */
+.bag-head { padding: 24px 28px 8px; }
+.bag-body { flex: 1; overflow-y: auto; padding: 0 28px; }
+.bag-foot { padding: 20px 28px 28px; border-top: 1px solid var(--rule); display: grid; gap: 10px; }
+.lines { list-style: none; margin: 0; padding: 0; }
+.line { display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+.line .dot { width: 52px; height: 64px; background: var(--c); box-shadow: inset 0 0 0 1px var(--edge); -webkit-mask: var(--pinked); mask: var(--pinked); --pink: 5px; }
+.line h3 { font: 400 1.05rem/1.25 var(--display); margin: 0; }
+.line p { margin: 2px 0 0; color: var(--muted); font-size: .92rem; }
+.line .controls { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+.line select { padding: 4px 6px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); }
+.totals { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; }
+.totals dt { color: var(--muted); }
+.totals dd { margin: 0; text-align: right; }
+.totals .grand { font-weight: 600; color: var(--ink); font-size: 1.1rem; }
+/* Free shipping, measured on a tailor's tape. */
+.tape {
+  height: 22px; border-radius: 2px; position: relative; overflow: hidden;
+  background:
+    repeating-linear-gradient(90deg, var(--muted) 0 1px, transparent 1px 10%) 0 100% / 100% 9px no-repeat,
+    repeating-linear-gradient(90deg, var(--rule) 0 1px, transparent 1px 2%) 0 100% / 100% 5px no-repeat,
+    #f3e7a8;
+}
+.tape b { position: absolute; inset: 0 auto 0 0; width: var(--p); background: color-mix(in srgb, var(--chalk) 75%, transparent); transition: width .4s ease; }
+:root[data-theme="dark"] .tape { background-color: #5a5232; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tape { background-color: #5a5232; } }
+
+/* account */
+.tabs { display: flex; gap: 18px; border-bottom: 1px solid var(--rule); margin-bottom: 18px; }
+.tabs button { background: none; border: 0; padding: 8px 0; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--chalk); }
+.form { display: grid; gap: 12px; }
+.form label { display: grid; gap: 4px; font-weight: 500; }
+.form input { padding: 10px 12px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); font-weight: 400; }
+.orders { list-style: none; margin: 0; padding: 0; }
+.orders li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.orders .status { font-weight: 600; }
+.orders .muted { color: var(--muted); font-size: .92rem; }
+.orders .actions { grid-column: 1 / -1; display: flex; gap: 14px; }
+
+.empty { color: var(--muted); padding: 40px 0; }
+
+@media (max-width: 820px) {
+  .bar { grid-template-columns: 1fr auto auto; padding: 10px 16px; }
+  .search { grid-column: 1 / -1; grid-row: 2; max-width: none; }
+  .intro { padding: 32px 16px 0; }
+  .shop { grid-template-columns: 1fr; padding: 28px 16px 64px; gap: 24px; }
+  .filters { position: static; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+  .shop > * { min-width: 0; }
+  .product { grid-template-columns: 1fr; }
+  .product .cloth { min-height: 220px; }
+  .notice { margin: 12px 16px 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* biome-ignore lint/complexity/noImportantStyles: the visitor's preference must beat every component rule */
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<header class="bar">
+  <a class="mark" href="/">Moda Hub</a>
+  <search class="search">
+    <form id="search-form">
+      <label class="visually-hidden" for="q">Buscar peças</label>
+      <input id="q" type="search" placeholder="Buscar: vestido, linho, plissada" autocomplete="off">
+    </form>
+  </search>
+  <button class="text-button" id="account-button" type="button">Entrar</button>
+  <button class="bag-button" id="bag-button" type="button" aria-haspopup="dialog">
+    Sacola <span class="num" id="bag-count">0</span>
+  </button>
+</header>
+
+<div class="notice" id="notice" role="status" hidden></div>
+
+<section class="intro" aria-labelledby="intro-title">
+  <h1 id="intro-title">Linho, cetim e lã fria, cortados para a estação.</h1>
+  <p>Cada amostra abaixo é uma cor que existe na loja agora. Toque em uma para ver só as peças nessa cor.</p>
+  <ul class="strip" id="strip" aria-label="Filtrar por cor"></ul>
+  <p class="strip-label" id="strip-label" aria-live="polite"></p>
+</section>
+
+<div class="shop">
+  <aside class="filters" aria-label="Filtros">
+    <nav aria-labelledby="cat-title">
+      <h2 id="cat-title">Categorias</h2>
+      <ul class="tree" id="tree"></ul>
+    </nav>
+    <fieldset>
+      <legend><h2 style="margin:0">Tamanho</h2></legend>
+      <div class="chips" id="sizes"></div>
+    </fieldset>
+    <div>
+      <h2>Mostrar</h2>
+      <label class="check"><input type="checkbox" id="on-sale"> Só promoções</label>
+      <label class="check"><input type="checkbox" id="in-stock"> Só com estoque</label>
+    </div>
+    <div>
+      <h2><label for="sort">Ordenar</label></h2>
+      <select id="sort">
+        <option value="newest">Novidades</option>
+        <option value="price_asc">Menor preço</option>
+        <option value="price_desc">Maior preço</option>
+        <option value="name">Nome</option>
+      </select>
+    </div>
+    <button class="text-button clear" id="clear" type="button">Limpar filtros</button>
+  </aside>
+
+  <main>
+    <p class="result-line" id="result-line" aria-live="polite">Carregando peças</p>
+    <ul class="grid" id="grid"></ul>
+    <button class="secondary more" id="more" type="button" hidden>Ver mais peças</button>
+  </main>
+</div>
+
+<dialog id="product-dialog" aria-labelledby="product-name">
+  <button class="dialog-close" type="button" data-close aria-label="Fechar">×</button>
+  <div class="product" id="product-body"></div>
+</dialog>
+
+<dialog id="bag-dialog" class="drawer" aria-labelledby="bag-title">
+  <button class="dialog-close" type="button" data-close aria-label="Fechar">×</button>
+  <div class="bag-head"><h2 id="bag-title">Sacola</h2></div>
+  <div class="bag-body" id="bag-body"></div>
+  <div class="bag-foot" id="bag-foot"></div>
+</dialog>
+
+<dialog id="account-dialog" class="small" aria-labelledby="account-title">
+  <button class="dialog-close" type="button" data-close aria-label="Fechar">×</button>
+  <div class="pad" id="account-body"></div>
+</dialog>
+
+<script>
+'use strict';
+const API = '/api/v1';
+const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const money = (cents) => brl.format(cents / 100);
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+const STATUS = {
+  pending_payment: 'Aguardando pagamento',
+  paid: 'Pago',
+  shipped: 'Enviado',
+  delivered: 'Entregue',
+  cancelled: 'Cancelado',
+  expired: 'Expirado',
+};
+// The API speaks English; the shop speaks Portuguese.
+const ERRORS = {
+  INVALID_CREDENTIALS: 'E-mail ou senha incorretos.',
+  EMAIL_TAKEN: 'Já existe uma conta com esse e-mail. Entre com ela.',
+  INSUFFICIENT_STOCK: 'Não há unidades suficientes dessa peça.',
+  CART_EMPTY: 'Sua sacola está vazia.',
+  CART_LIMIT: 'Você pode levar no máximo 10 unidades de cada peça.',
+  PAYMENTS_UNAVAILABLE: 'Pagamentos estão desativados nesta instalação. Configure STRIPE_SECRET_KEY para testar o checkout.',
+  RATE_LIMITED: 'Muitas tentativas seguidas. Espere um pouco e tente de novo.',
+  INVALID_RESET_TOKEN: 'Esse link de redefinição expirou ou já foi usado. Peça um novo.',
+  VALIDATION_FAILED: 'Confira os campos destacados.',
+};
+
+class ApiError extends Error {
+  constructor(status, body) {
+    const e = body?.error ?? {};
+    super(ERRORS[e.code] ?? e.message ?? `Erro ${status}`);
+    this.status = status;
+    this.code = e.code;
+    this.details = e.details;
+  }
+}
+
+// ------------------------------------------------------------------ session
+// The access token lives only in memory; the refresh token is an HttpOnly
+// cookie the page never sees.
+const session = { token: null, user: null };
+
+async function api(path, { method = 'GET', body, headers = {}, retry = true } = {}) {
+  const res = await fetch(API + path, {
+    method,
+    credentials: 'same-origin',
+    headers: {
+      ...(body !== undefined && { 'Content-Type': 'application/json' }),
+      ...(session.token && { Authorization: `Bearer ${session.token}` }),
+      ...headers,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (res.status === 401 && retry && session.token && (await refresh())) {
+    return api(path, { method, body, headers, retry: false });
+  }
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, data);
+  return data;
+}
+
+async function refresh() {
+  try {
+    const res = await fetch(`${API}/auth/refresh`, { method: 'POST', credentials: 'same-origin' });
+    if (!res.ok) return signedOut();
+    session.token = (await res.json()).accessToken;
+    session.user ??= await api('/users/me', { retry: false });
+    renderAccountButton();
+    return true;
+  } catch {
+    return signedOut();
+  }
+}
+
+function signedOut() {
+  session.token = null;
+  session.user = null;
+  renderAccountButton();
+  return false;
+}
+
+function signedIn({ user, accessToken }) {
+  session.token = accessToken;
+  session.user = user;
+  renderAccountButton();
+}
+
+function renderAccountButton() {
+  $('#account-button').textContent = session.user ? `Olá, ${session.user.name.split(' ')[0]}` : 'Entrar';
+}
+
+// ------------------------------------------------------------------ catalogue
+const filters = { q: '', category: '', size: new Set(), color: new Set(), onSale: false, inStock: false, sort: 'newest' };
+let nextCursor = null;
+let listing = 0;
+
+function weave(material = '', name = '') {
+  const m = `${material} ${name}`.toLowerCase();
+  if (/cetim|seda/.test(m)) return 'weave-satin';
+  if (/jeans/.test(m)) return 'weave-denim';
+  if (/couro/.test(m)) return 'weave-leather';
+  if (/lã|la fria/.test(m)) return 'weave-wool';
+  if (/elastano|canelad|malha/.test(m)) return 'weave-knit';
+  if (/floral|estampad|geom/.test(m)) return 'weave-print';
+  return 'weave-linen';
+}
+
+function cloth(colours, material, name) {
+  const bands = colours.map((c) => `<i style="--c:${esc(c.hex)}"></i>`).join('');
+  return `<div class="cloth ${weave(material, name)}" aria-hidden="true">${bands}</div>`;
+}
+
+function query(extra = {}) {
+  const p = new URLSearchParams();
+  if (filters.q) p.set('q', filters.q);
+  if (filters.category) p.set('category', filters.category);
+  if (filters.size.size) p.set('size', [...filters.size].join(','));
+  if (filters.color.size) p.set('color', [...filters.color].join(','));
+  if (filters.onSale) p.set('onSale', 'true');
+  if (filters.inStock) p.set('inStock', 'true');
+  p.set('sort', filters.q && filters.sort === 'newest' ? 'relevance' : filters.sort);
+  p.set('limit', '12');
+  for (const [k, v] of Object.entries(extra)) p.set(k, v);
+  return p.toString();
+}
+
+async function loadProducts({ append = false } = {}) {
+  const ticket = ++listing;
+  const grid = $('#grid');
+  try {
+    const page = await api(`/products?${query(append && nextCursor ? { cursor: nextCursor } : {})}`);
+    if (ticket !== listing) return; // a newer filter change won
+    nextCursor = page.nextCursor;
+    const cards = page.data.map(card).join('');
+    grid.innerHTML = append ? grid.innerHTML + cards : cards;
+    const count = grid.children.length;
+    $('#result-line').textContent = count === 0
+      ? 'Nenhuma peça com esses filtros. Tire um filtro para ver mais opções.'
+      : `${count} ${count === 1 ? 'peça' : 'peças'}${nextCursor ? ' até agora' : ''}`;
+    $('#more').hidden = !nextCursor;
+  } catch (err) {
+    $('#result-line').textContent = `Não foi possível carregar as peças: ${err.message}`;
+  }
+}
+
+function card(p) {
+  rememberColours([p]);
+  return `<li class="card${p.inStock ? '' : ' sold-out'}">
+    <button type="button" data-slug="${esc(p.slug)}">
+      ${cloth(p.colors, '', p.name)}
+      <h3>${esc(p.name)}</h3>
+      <div class="meta">
+        <span class="price">${money(p.priceFromCents)}</span>
+        <span>${p.inStock ? (p.onSale ? '<span class="flag">Promoção</span>' : `${p.sizes.length} ${p.sizes.length === 1 ? 'tamanho' : 'tamanhos'}`) : 'Esgotado'}</span>
+      </div>
+    </button>
+  </li>`;
+}
+
+async function loadFacets() {
+  const [tree, all] = await Promise.all([api('/categories'), api('/products?limit=60')]);
+  const branch = (nodes) => nodes.map((n) => `<li><button type="button" data-category="${esc(n.slug)}">${esc(n.name)}</button>${n.children.length ? `<ul>${branch(n.children)}</ul>` : ''}</li>`).join('');
+  $('#tree').innerHTML = `<li><button type="button" data-category="" aria-current="true">Tudo</button></li>${branch(tree.data)}`;
+
+  const colours = new Map();
+  const sizes = new Set();
+  for (const p of all.data) {
+    for (const c of p.colors) colours.set(c.name, c.hex);
+    for (const s of p.sizes) sizes.add(s);
+  }
+  $('#strip').innerHTML = [...colours].map(([name, hex]) =>
+    `<li><button type="button" style="--c:${esc(hex)}" data-colour="${esc(name)}" aria-pressed="false"><span class="visually-hidden">${esc(name)}</span></button></li>`).join('');
+  const order = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'U'];
+  const rank = (s) => (/^\d+$/.test(s) ? 100 + Number(s) : order.indexOf(s));
+  $('#sizes').innerHTML = [...sizes].sort((a, b) => rank(a) - rank(b)).map((s) =>
+    `<label class="chip"><input type="checkbox" value="${esc(s)}"><span>${esc(s)}</span></label>`).join('');
+}
+
+function describeColours() {
+  $('#strip-label').textContent = filters.color.size
+    ? `Mostrando: ${[...filters.color].join(', ')}`
+    : '';
+}
+
+// ------------------------------------------------------------------ product
+let current = null;
+
+async function openProduct(slug) {
+  current = await api(`/products/${encodeURIComponent(slug)}`);
+  const colours = [...new Map(current.variants.map((v) => [v.color, v.colorHex]))];
+  const preferred = colours.find(([name]) => filters.color.has(name))?.[0]
+    ?? colours.find(([name]) => current.variants.some((v) => v.color === name && v.inStock))?.[0]
+    ?? colours[0]?.[0];
+  $('#product-body').innerHTML = `
+    <div id="product-cloth"></div>
+    <form class="info" id="buy-form">
+      <p class="category">${esc(current.category.name)}</p>
+      <h2 id="product-name">${esc(current.name)}</h2>
+      <div class="big-price price" id="product-price"></div>
+      <p>${esc(current.description)}</p>
+      <fieldset>
+        <legend>Cor <output id="colour-name"></output></legend>
+        <div class="colours">${colours.map(([name, hex]) => `
+          <label class="colour" title="${esc(name)}"><input type="radio" name="colour" value="${esc(name)}"${name === preferred ? ' checked' : ''}>
+          <span style="--c:${esc(hex)}"></span><span class="visually-hidden">${esc(name)}</span></label>`).join('')}
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Tamanho</legend>
+        <div class="chips" id="product-sizes"></div>
+      </fieldset>
+      <div class="buy">
+        <label class="visually-hidden" for="qty">Quantidade</label>
+        <select class="qty" id="qty">${Array.from({ length: 10 }, (_, i) => `<option>${i + 1}</option>`).join('')}</select>
+        <button class="primary" id="add" type="submit" disabled>Escolha um tamanho</button>
+      </div>
+      <p class="form-error" id="buy-error" role="alert"></p>
+      <details><summary>Tecido e cuidados</summary><p>${esc(current.material)}</p><p class="hint">${esc(current.careInstructions)}</p></details>
+    </form>`;
+  renderVariantChoice();
+  $('#product-dialog').showModal();
+}
+
+function selectedVariant() {
+  const colour = $('#buy-form input[name=colour]:checked')?.value;
+  const size = $('#buy-form input[name=size]:checked')?.value;
+  return current.variants.find((v) => v.color === colour && v.size === size);
+}
+
+function renderVariantChoice() {
+  const colour = $('#buy-form input[name=colour]:checked')?.value;
+  const previous = $('#buy-form input[name=size]:checked')?.value;
+  const inColour = current.variants.filter((v) => v.color === colour);
+  $('#colour-name').textContent = colour ?? '';
+  $('#product-cloth').innerHTML = cloth(inColour.slice(0, 1).map((v) => ({ hex: v.colorHex })), current.material, current.name);
+  $('#product-sizes').innerHTML = inColour.map((v) => `
+    <label class="chip" title="${v.inStock ? '' : 'Esgotado'}"><input type="radio" name="size" value="${esc(v.size)}"${v.inStock ? '' : ' disabled'}${v.inStock && v.size === previous ? ' checked' : ''}>
+    <span>${esc(v.size)}</span></label>`).join('');
+  if (inColour.every((v) => !v.inStock)) $('#product-sizes').insertAdjacentHTML('beforeend', '<p class="hint">Esgotado nessa cor.</p>');
+  const v = selectedVariant() ?? inColour[0];
+  $('#product-price').innerHTML = v
+    ? `${money(v.priceCents)}${v.compareAtPriceCents ? `<span class="was">${money(v.compareAtPriceCents)}</span><span class="off">-${v.discountPercent}%</span>` : ''}`
+    : '';
+  const add = $('#add');
+  add.disabled = !selectedVariant();
+  add.textContent = selectedVariant() ? 'Adicionar à sacola' : 'Escolha um tamanho';
+}
+
+async function addToBag(e) {
+  e.preventDefault();
+  const v = selectedVariant();
+  if (!v) return;
+  if (!(await requireAccount('Entre ou crie sua conta para montar sua sacola.'))) return;
+  try {
+    await api('/cart/items', { method: 'POST', body: { variantId: v.id, quantity: Number($('#qty').value) } });
+    $('#product-dialog').close();
+    await openBag();
+  } catch (err) {
+    $('#buy-error').textContent = err.message;
+  }
+}
+
+// ------------------------------------------------------------------ bag
+let placed = null;
+
+async function refreshBagCount() {
+  if (!session.token) {
+    $('#bag-count').textContent = '0';
+    return null;
+  }
+  const cart = await api('/cart').catch(() => null);
+  $('#bag-count').textContent = cart?.itemCount ?? 0;
+  return cart;
+}
+
+async function openBag() {
+  if (!$('#bag-dialog').open) $('#bag-dialog').showModal();
+  if (!session.token) {
+    $('#bag-body').innerHTML = '<p class="empty">Entre na sua conta para ver a sacola.</p>';
+    $('#bag-foot').innerHTML = '<button class="primary" type="button" data-action="sign-in">Entrar</button>';
+    return;
+  }
+  if (placed) return renderPlaced();
+  const cart = await refreshBagCount();
+  if (!cart || cart.items.length === 0) {
+    $('#bag-body').innerHTML = '<p class="empty">Sua sacola está vazia. Escolha uma amostra para começar.</p>';
+    $('#bag-foot').innerHTML = '';
+    return;
+  }
+  const FREE_FROM = cart.subtotalCents + cart.freeShippingRemainingCents;
+  const progress = cart.freeShippingRemainingCents === 0 ? 100 : Math.round((cart.subtotalCents / FREE_FROM) * 100);
+  $('#bag-body').innerHTML = `<ul class="lines">${cart.items.map((i) => `
+    <li class="line">
+      <div class="dot" style="--c:${esc(colourOf(i))}" aria-hidden="true"></div>
+      <div>
+        <h3>${esc(i.productName)}</h3>
+        <p>${esc(i.color)}, tamanho ${esc(i.size)}</p>
+        <div class="controls">
+          <label class="visually-hidden" for="q-${esc(i.variantId)}">Quantidade</label>
+          <select id="q-${esc(i.variantId)}" data-variant="${esc(i.variantId)}">${Array.from({ length: 10 }, (_, n) => `<option${n + 1 === i.quantity ? ' selected' : ''}>${n + 1}</option>`).join('')}</select>
+          <button class="text-button" type="button" data-remove="${esc(i.variantId)}">Remover</button>
+        </div>
+      </div>
+      <div class="price">${money(i.lineTotalCents)}</div>
+    </li>`).join('')}</ul>`;
+  $('#bag-foot').innerHTML = `
+    <p class="hint">${cart.freeShippingRemainingCents > 0 ? `Faltam ${money(cart.freeShippingRemainingCents)} para o frete grátis.` : 'Frete grátis garantido.'}</p>
+    <div class="tape" style="--p:${progress}%" role="progressbar" aria-label="Caminho até o frete grátis" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><b></b></div>
+    <dl class="totals price">
+      <dt>Subtotal</dt><dd>${money(cart.subtotalCents)}</dd>
+      ${cart.savingsCents ? `<dt>Você economiza</dt><dd>${money(cart.savingsCents)}</dd>` : ''}
+      <dt>Frete</dt><dd>${cart.shippingCents ? money(cart.shippingCents) : 'Grátis'}</dd>
+      <dt class="grand">Total</dt><dd class="grand">${money(cart.totalCents)}</dd>
+    </dl>
+    <p class="form-error" id="bag-error" role="alert"></p>
+    <button class="primary" type="button" data-action="place"${cart.checkoutReady ? '' : ' disabled'}>Fechar pedido</button>`;
+}
+
+// Cart lines carry no colour hex; look it up from the products listed so far.
+const knownColours = new Map();
+const colourOf = (i) => knownColours.get(i.color) ?? '#999999';
+
+async function placeOrder() {
+  const button = $('[data-action=place]');
+  button.disabled = true;
+  try {
+    // One key per attempt: a double click or a retried request cannot create two orders.
+    placed = await api('/orders', { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } });
+    await refreshBagCount();
+    renderPlaced();
+  } catch (err) {
+    $('#bag-error').textContent = err.message;
+    button.disabled = false;
+  }
+}
+
+function renderPlaced() {
+  const minutes = Math.max(0, Math.round((new Date(placed.expiresAt) - Date.now()) / 60000));
+  $('#bag-body').innerHTML = `
+    <p>Pedido <strong>#${esc(placed.id.slice(-8))}</strong> reservado. As peças ficam separadas para você por ${minutes} minutos enquanto o pagamento não chega.</p>
+    <ul class="lines">${placed.items.map((i) => `<li class="line" style="grid-template-columns:1fr auto"><div><h3>${esc(i.productName)}</h3><p>${esc(i.color)}, ${esc(i.size)}, ${i.quantity} un.</p></div><div class="price">${money(i.lineTotalCents)}</div></li>`).join('')}</ul>`;
+  $('#bag-foot').innerHTML = `
+    <dl class="totals price"><dt class="grand">Total</dt><dd class="grand">${money(placed.totalCents)}</dd></dl>
+    <p class="form-error" id="bag-error" role="alert"></p>
+    <button class="primary" type="button" data-action="pay">Pagar com cartão, Pix ou boleto</button>
+    <button class="text-button" type="button" data-action="keep-shopping">Continuar comprando</button>`;
+}
+
+async function pay() {
+  const button = $('[data-action=pay]');
+  button.disabled = true;
+  try {
+    const { checkoutUrl } = await api(`/orders/${placed.id}/checkout`, { method: 'POST' });
+    window.location.assign(checkoutUrl);
+  } catch (err) {
+    $('#bag-error').textContent = err.message;
+    button.disabled = false;
+  }
+}
+
+// ------------------------------------------------------------------ account
+let afterSignIn = null;
+
+function requireAccount(message) {
+  if (session.token) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    afterSignIn = resolve;
+    openAccount('login', message);
+  });
+}
+
+function openAccount(tab = 'login', message = '') {
+  if (session.user) return renderAccount();
+  const register = tab === 'register';
+  $('#account-body').innerHTML = `
+    <h2 id="account-title">${register ? 'Criar conta' : 'Entrar'}</h2>
+    ${message ? `<p class="hint">${esc(message)}</p>` : ''}
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" aria-selected="${!register}" data-tab="login">Já tenho conta</button>
+      <button type="button" role="tab" aria-selected="${register}" data-tab="register">Sou nova por aqui</button>
+    </div>
+    <form class="form" id="auth-form" data-mode="${register ? 'register' : 'login'}">
+      ${register ? '<label>Nome<input name="name" required maxlength="100" autocomplete="name"></label>' : ''}
+      <label>E-mail<input name="email" type="email" required autocomplete="email"></label>
+      <label>Senha<input name="password" type="password" required minlength="8" autocomplete="${register ? 'new-password' : 'current-password'}"></label>
+      ${register ? '<p class="hint">Pelo menos 8 caracteres.</p>' : ''}
+      <p class="form-error" id="auth-error" role="alert"></p>
+      <button class="primary" type="submit">${register ? 'Criar conta' : 'Entrar'}</button>
+      ${register ? '' : '<button class="text-button" type="button" data-action="forgot">Esqueci minha senha</button>'}
+    </form>`;
+  if (!$('#account-dialog').open) $('#account-dialog').showModal();
+  $('#auth-form input').focus();
+}
+
+async function submitAuth(form) {
+  const data = Object.fromEntries(new FormData(form));
+  try {
+    signedIn(await api(`/auth/${form.dataset.mode}`, { method: 'POST', body: data, retry: false }));
+    await refreshBagCount();
+    $('#account-dialog').close();
+    afterSignIn?.(true);
+    afterSignIn = null;
+  } catch (err) {
+    $('#auth-error').textContent = err.details?.length
+      ? err.details.map((d) => `${{ email: 'E-mail', password: 'Senha', name: 'Nome' }[d.field] ?? d.field}: ${d.message}`).join('. ')
+      : err.message;
+  }
+}
+
+async function forgot() {
+  const email = $('#auth-form [name=email]').value;
+  if (!$('#auth-form [name=email]').checkValidity() || !email) {
+    $('#auth-error').textContent = 'Digite seu e-mail acima para receber o link.';
+    return;
+  }
+  await api('/auth/password/forgot', { method: 'POST', body: { email }, retry: false }).catch(() => null);
+  // The API answers the same whether or not the account exists.
+  $('#auth-error').textContent = '';
+  $('#account-body').insertAdjacentHTML('beforeend', `<p class="hint">Se existir uma conta para ${esc(email)}, enviamos um link para redefinir a senha. Em desenvolvimento, ele chega no Mailpit (localhost:8025).</p>`);
+}
+
+async function renderAccount() {
+  if (!$('#account-dialog').open) $('#account-dialog').showModal();
+  $('#account-body').innerHTML = `<h2 id="account-title">${esc(session.user.name)}</h2><p class="hint">${esc(session.user.email)}</p><h3>Seus pedidos</h3><ul class="orders" id="orders"><li class="muted">Carregando</li></ul>
+    <p><button class="secondary" type="button" data-action="sign-out">Sair</button></p>`;
+  try {
+    const { data } = await api('/orders?limit=10');
+    $('#orders').innerHTML = data.length === 0
+      ? '<li class="muted">Você ainda não fez pedidos.</li>'
+      : data.map((o) => `<li>
+          <span>#${esc(o.id.slice(-8))} <span class="muted">${new Date(o.createdAt).toLocaleDateString('pt-BR')}, ${o.itemCount} ${o.itemCount === 1 ? 'peça' : 'peças'}</span></span>
+          <span class="price">${money(o.totalCents)}</span>
+          <span class="status">${STATUS[o.status] ?? esc(o.status)}</span>
+          ${o.status === 'pending_payment' ? `<span class="actions"><button class="text-button" type="button" data-pay="${esc(o.id)}">Pagar</button><button class="text-button" type="button" data-cancel="${esc(o.id)}">Cancelar</button></span>` : ''}
+        </li>`).join('');
+  } catch (err) {
+    $('#orders').innerHTML = `<li class="muted">${esc(err.message)}</li>`;
+  }
+}
+
+async function signOut() {
+  await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'same-origin' }).catch(() => null);
+  signedOut();
+  placed = null;
+  $('#bag-count').textContent = '0';
+  $('#account-dialog').close();
+}
+
+function openReset(token) {
+  $('#account-body').innerHTML = `
+    <h2 id="account-title">Nova senha</h2>
+    <form class="form" id="reset-form">
+      <label>Nova senha<input name="newPassword" type="password" required minlength="8" autocomplete="new-password"></label>
+      <p class="form-error" id="auth-error" role="alert"></p>
+      <button class="primary" type="submit">Salvar nova senha</button>
+    </form>`;
+  $('#account-dialog').showModal();
+  $('#reset-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await api('/auth/password/reset', { method: 'POST', body: { token, newPassword: e.target.newPassword.value }, retry: false });
+      history.replaceState(null, '', '/');
+      openAccount('login', 'Senha alterada. Entre com a nova senha.');
+    } catch (err) {
+      $('#auth-error').textContent = err.message;
+    }
+  });
+}
+
+// ------------------------------------------------------------------ wiring
+function notice(text, ok = false) {
+  const n = $('#notice');
+  n.textContent = text;
+  n.classList.toggle('ok', ok);
+  n.hidden = false;
+}
+
+function rememberColours(products) {
+  for (const p of products) for (const c of p.colors ?? []) knownColours.set(c.name, c.hex);
+}
+
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest('button');
+  if (!t) return;
+  if (t.matches('[data-close]')) return t.closest('dialog').close();
+  if (t.dataset.slug) return openProduct(t.dataset.slug).catch((err) => notice(err.message));
+  if (t.dataset.colour !== undefined) {
+    const name = t.dataset.colour;
+    filters.color.has(name) ? filters.color.delete(name) : filters.color.add(name);
+    t.setAttribute('aria-pressed', String(filters.color.has(name)));
+    describeColours();
+    return loadProducts();
+  }
+  if (t.dataset.category !== undefined) {
+    filters.category = t.dataset.category;
+    for (const b of document.querySelectorAll('[data-category]')) b.setAttribute('aria-current', String(b === t));
+    return loadProducts();
+  }
+  if (t.dataset.tab) return openAccount(t.dataset.tab);
+  if (t.dataset.remove) {
+    await api(`/cart/items/${t.dataset.remove}`, { method: 'DELETE' });
+    return openBag();
+  }
+  if (t.dataset.cancel) {
+    await api(`/orders/${t.dataset.cancel}/cancel`, { method: 'POST' }).catch((err) => notice(err.message));
+    return renderAccount();
+  }
+  if (t.dataset.pay) {
+    placed = await api(`/orders/${t.dataset.pay}`);
+    $('#account-dialog').close();
+    return openBag();
+  }
+  switch (t.dataset.action) {
+    case 'place': return placeOrder();
+    case 'pay': return pay();
+    case 'keep-shopping': placed = null; return $('#bag-dialog').close();
+    case 'sign-in': $('#bag-dialog').close(); return requireAccount('').then((ok) => ok && openBag());
+    case 'sign-out': return signOut();
+    case 'forgot': return forgot();
+  }
+});
+
+document.addEventListener('change', async (e) => {
+  const t = e.target;
+  if (t.name === 'colour' || t.name === 'size') return renderVariantChoice();
+  if (t.dataset.variant) {
+    try {
+      await api(`/cart/items/${t.dataset.variant}`, { method: 'PATCH', body: { quantity: Number(t.value) } });
+    } catch (err) {
+      notice(err.message);
+    }
+    return openBag();
+  }
+  if (t.closest('#sizes')) {
+    t.checked ? filters.size.add(t.value) : filters.size.delete(t.value);
+    return loadProducts();
+  }
+  if (t.id === 'on-sale') filters.onSale = t.checked;
+  else if (t.id === 'in-stock') filters.inStock = t.checked;
+  else if (t.id === 'sort') filters.sort = t.value;
+  else return;
+  loadProducts();
+});
+
+document.addEventListener('submit', (e) => {
+  if (e.target.id === 'buy-form') return addToBag(e);
+  if (e.target.id === 'auth-form') {
+    e.preventDefault();
+    return submitAuth(e.target);
+  }
+});
+
+$('#account-dialog').addEventListener('close', () => {
+  afterSignIn?.(false);
+  afterSignIn = null;
+});
+
+let typing;
+$('#q').addEventListener('input', (e) => {
+  clearTimeout(typing);
+  typing = setTimeout(() => {
+    filters.q = e.target.value.trim();
+    loadProducts();
+  }, 250);
+});
+$('#search-form').addEventListener('submit', (e) => e.preventDefault());
+$('#more').addEventListener('click', () => loadProducts({ append: true }));
+$('#bag-button').addEventListener('click', openBag);
+$('#account-button').addEventListener('click', () => openAccount());
+$('#clear').addEventListener('click', () => {
+  Object.assign(filters, { q: '', category: '', onSale: false, inStock: false, sort: 'newest' });
+  filters.size.clear();
+  filters.color.clear();
+  $('#q').value = '';
+  for (const i of document.querySelectorAll('.filters input')) i.checked = false;
+  $('#sort').value = 'newest';
+  for (const b of document.querySelectorAll('[data-colour]')) b.setAttribute('aria-pressed', 'false');
+  for (const b of document.querySelectorAll('[data-category]')) b.setAttribute('aria-current', String(b.dataset.category === ''));
+  describeColours();
+  loadProducts();
+});
+
+(async function start() {
+  const url = new URL(window.location.href);
+  const orderId = url.searchParams.get('order_id');
+  if (url.pathname === '/checkout/success' && orderId) {
+    notice(`Pagamento enviado para o pedido #${orderId.slice(-8)}. Assim que a confirmação chegar, o pedido aparece como pago em "Seus pedidos" e você recebe um e-mail.`, true);
+  } else if (url.pathname === '/checkout/cancel' && orderId) {
+    notice(`O pagamento do pedido #${orderId.slice(-8)} não foi concluído. As peças continuam reservadas por alguns minutos: abra "Seus pedidos" para pagar.`);
+  }
+  if (url.pathname !== '/reset-password') history.replaceState(null, '', '/');
+
+  await refresh();
+  refreshBagCount();
+  try {
+    await loadFacets();
+  } catch (err) {
+    notice(`Não foi possível carregar o catálogo: ${err.message}`);
+  }
+  loadProducts();
+  if (url.pathname === '/reset-password' && url.searchParams.get('token')) openReset(url.searchParams.get('token'));
+})();
+</script>
+</body>
+</html>

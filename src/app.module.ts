@@ -13,6 +13,7 @@ import { OrdersModule } from './modules/orders/orders.module.js';
 import { PaymentsModule } from './modules/payments/payments.module.js';
 import { createRegistry, HTTP_METRICS, httpMetrics, METRICS_REGISTRY } from './platform/metrics.js';
 import { PlatformModule, type PlatformOptions } from './platform/platform.module.js';
+import { StorefrontController } from './storefront/storefront.controller.js';
 
 export type AppOptions = PlatformOptions;
 
@@ -30,7 +31,7 @@ export class AppModule implements NestModule {
         OrdersModule,
         PaymentsModule,
       ],
-      controllers: [HealthController, MetricsController, AdminJobsController],
+      controllers: [HealthController, MetricsController, AdminJobsController, StorefrontController],
       providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },
         { provide: METRICS_REGISTRY, useFactory: () => createRegistry('api') },

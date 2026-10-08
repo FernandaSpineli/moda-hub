@@ -22,5 +22,15 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["public/**"],
+      "linter": {
+        "rules": {
+          "style": { "noDescendingSpecificity": "off" }
+        }
+      }
+    }
+  ],
   "assist": { "actions": { "source": { "organizeImports": "on" } } }
 }

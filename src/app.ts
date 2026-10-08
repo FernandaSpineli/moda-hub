@@ -4,6 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
 import { AppModule, type AppOptions } from './app.module.js';
 import { serveOpenApi } from './openapi.js';
+import { STOREFRONT_PATHS } from './storefront/storefront.controller.js';
 
 /**
  * Builds the HTTP application. main.ts and the API tests both use it, so
@@ -18,7 +19,9 @@ export async function createApp(options: AppOptions): Promise<INestApplication> 
   app.useLogger(app.get(Logger));
   app.useBodyParser('json', { limit: '1mb' });
   app.disable('x-powered-by');
-  app.setGlobalPrefix('api/v1', { exclude: ['health', 'ready', 'metrics', '.well-known/jwks.json'] });
+  app.setGlobalPrefix('api/v1', {
+    exclude: ['health', 'ready', 'metrics', '.well-known/jwks.json', ...STOREFRONT_PATHS],
+  });
   serveOpenApi(app);
   app.enableShutdownHooks();
   return app;

@@ -264,8 +264,9 @@ export async function seedDemo(db: Db, logger: Logger): Promise<{ products: numb
             compareAtPriceCents: p.compareAtPriceCents,
           }),
         );
-        // Deterministic gaps: some sizes sell out, so the storefront shows that state.
-        const soldOut = (i + c + s) % 7 === 3;
+        // Deterministic gaps: some sizes sell out, so the storefront shows that
+        // state, but no product sells out entirely.
+        const soldOut = p.sizes.length > 1 && (i + c + s) % 7 === 3;
         await inventory.set(variant?.id as string, { onHand: soldOut ? 0 : p.stock + s });
         variants += 1;
       }
