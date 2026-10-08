@@ -44,6 +44,9 @@ export function requestId(req: IncomingMessage, res: ServerResponse): string {
  */
 export function loggerParams(config: AppConfig, stream?: DestinationStream): Params {
   return {
+    // Fields added with PinoLogger.assign (e.g. user_id) also go on the
+    // access log line.
+    assignResponse: true,
     pinoHttp: [
       {
         ...baseLoggerOptions(config),

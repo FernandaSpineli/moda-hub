@@ -17,7 +17,7 @@ export async function createApp(options: AppOptions): Promise<INestApplication> 
   app.useLogger(app.get(Logger));
   app.useBodyParser('json', { limit: '1mb' });
   app.disable('x-powered-by');
-  app.setGlobalPrefix('api/v1', { exclude: ['health', 'ready', 'metrics'] });
+  app.setGlobalPrefix('api/v1', { exclude: ['health', 'ready', 'metrics', '.well-known/jwks.json'] });
   app.enableShutdownHooks();
   return app;
 }

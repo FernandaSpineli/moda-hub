@@ -3,11 +3,13 @@ import type { Response } from 'express';
 import type { Redis } from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
 import type pg from 'pg';
+import { Public } from '../modules/auth/decorators.js';
 import { PG_POOL } from '../platform/database.js';
 import { REDIS } from '../platform/redis.js';
 
 const CHECK_TIMEOUT_MS = 2_000;
 
+@Public()
 @Controller()
 export class HealthController {
   constructor(

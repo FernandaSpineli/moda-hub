@@ -1,3 +1,4 @@
+import { createPrivateKey, type KeyObject } from 'node:crypto';
 import { z } from 'zod';
 import { Secret } from './secret.js';
 
@@ -29,6 +30,23 @@ const envSchema = z.object({
   SHUTDOWN_TIMEOUT: duration('15s'),
   DATABASE_URL: z.string({ error: 'required' }).startsWith('postgres', 'must be a postgres:// URL'),
   REDIS_URL: z.string({ error: 'required' }).startsWith('redis', 'must be a redis:// URL'),
+  APP_BASE_URL: z.url().default('http://localhost:3000'),
+  JWT_PRIVATE_KEY: z
+    .string({ error: 'required (generate one with: node scripts/generate-jwt-key.mjs)' })
+    .transform((v, ctx) => {
+      try {
+        const key = createPrivateKey(Buffer.from(v, 'base64').toString('utf8'));
+        if (key.asymmetricKeyType !== 'ed25519')
+          throw new Error(`expected an Ed25519 key, got ${key.asymmetricKeyType}`);
+        return key;
+      } catch (err) {
+        ctx.addIssue({ code: 'custom', message: `invalid key: ${(err as Error).message}` });
+        return z.NEVER;
+      }
+    }),
+  ACCESS_TOKEN_TTL: duration('15m'),
+  REFRESH_TOKEN_TTL: duration('720h'),
+  PASSWORD_RESET_TTL: duration('30m'),
 });
 
 export interface AppConfig {
@@ -38,6 +56,15 @@ export interface AppConfig {
   shutdownTimeoutMs: number;
   databaseUrl: Secret;
   redisUrl: Secret;
+  /** Public URL of the shop, used in emails and Stripe redirects. */
+  baseUrl: string;
+  auth: {
+    /** Ed25519 key that signs access tokens; its public half is published as a JWKS. */
+    signingKey: KeyObject;
+    accessTokenTtlMs: number;
+    refreshTokenTtlMs: number;
+    passwordResetTtlMs: number;
+  };
 }
 
 export class ConfigError extends Error {
@@ -65,6 +92,13 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     shutdownTimeoutMs: e.SHUTDOWN_TIMEOUT,
     databaseUrl: new Secret(e.DATABASE_URL),
     redisUrl: new Secret(e.REDIS_URL),
+    baseUrl: e.APP_BASE_URL.replace(/\/$/, ''),
+    auth: {
+      signingKey: e.JWT_PRIVATE_KEY,
+      accessTokenTtlMs: e.ACCESS_TOKEN_TTL,
+      refreshTokenTtlMs: e.REFRESH_TOKEN_TTL,
+      passwordResetTtlMs: e.PASSWORD_RESET_TTL,
+    },
   };
 }
 
