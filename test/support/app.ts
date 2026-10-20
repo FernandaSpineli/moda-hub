@@ -64,7 +64,9 @@ export async function startTestApp(
     // argon2's production cost (64 MiB per hash) would make the suite slow.
     hashOptions,
   });
-  await app.init();
+  // Listen on a real port: supertest then connects to it instead of starting
+  // the server itself for every request, which concurrent tests would pile up.
+  await app.listen(0, '127.0.0.1');
   const worker: INestApplicationContext | undefined = options.worker
     ? await createWorker({ config, logStream, hashOptions, paymentGateway: gateway, mailer })
     : undefined;
