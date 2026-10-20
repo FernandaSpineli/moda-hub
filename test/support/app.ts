@@ -105,7 +105,6 @@ export async function startTestApp(
             (n, c) => n + (c.waiting ?? 0) + (c.active ?? 0) + (c.prioritized ?? 0) + (c.delayed ?? 0),
             0,
           );
-        rows[0].n + counts.reduce((n, c) => n + (c.waiting ?? 0) + (c.active ?? 0) + (c.prioritized ?? 0), 0);
         quietChecks = busy === 0 ? quietChecks + 1 : 0;
         await new Promise((r) => setTimeout(r, 100));
       }
